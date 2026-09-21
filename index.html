@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<meta name="theme-color" content="#d33a3a">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<title>资产聚合管理终端 v2.26.8</title>
+<!-- build:20260922p -->
+<link rel="stylesheet" href="style.css?v=20260922p">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%232f7d5d'/%3E%3Ctext x='16' y='22' font-size='16' text-anchor='middle' fill='%23fff' font-weight='bold'%3E资%3C/text%3E%3C/svg%3E">
+</head>
+<body>
+<div id="login-mask" style="display:none;position:fixed;inset:0;z-index:9999;background:linear-gradient(180deg,#1a1d23 0%,#0d0f12 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px">
+  <div style="background:#1e2a3a;border-radius:24px;padding:36px 28px;width:100%;max-width:360px;box-shadow:0 8px 32px rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.05)">
+    <div style="width:64px;height:64px;border-radius:16px;background:linear-gradient(135deg,#f0b90b,#d49a0a);display:flex;align-items:center;justify-content:center;margin-bottom:20px">
+      <span style="font-size:32px;font-weight:900;color:#1a1d23">资</span>
+    </div>
+    <div style="font-size:26px;font-weight:800;color:#fff;margin-bottom:6px">资产聚合管理终端</div>
+    <div style="display:inline-block;padding:4px 14px;border-radius:20px;border:1px solid #f0b90b;color:#f0b90b;font-size:13px;font-weight:600;margin-bottom:28px">v2.26.8</div>
+    <input id="login-user" type="text" placeholder="用户名" value="admin" style="width:100%;padding:16px 18px;border-radius:14px;border:1px solid rgba(255,255,255,.08);background:#0d1117;color:#fff;font-size:16px;outline:none;margin-bottom:14px;box-sizing:border-box">
+    <input id="login-pass" type="password" placeholder="密码" style="width:100%;padding:16px 18px;border-radius:14px;border:1px solid rgba(255,255,255,.08);background:#0d1117;color:#fff;font-size:16px;outline:none;margin-bottom:8px;box-sizing:border-box">
+    <div id="login-err" style="color:#ff6b6b;font-size:14px;text-align:center;margin-bottom:16px;display:none">账号或密码错误</div>
+    <button onclick="AuthUI.login()" style="width:100%;padding:16px;border-radius:14px;border:none;background:linear-gradient(135deg,#f0b90b,#d49a0a);color:#1a1d23;font-size:17px;font-weight:700;cursor:pointer;box-shadow:0 4px 16px rgba(240,185,11,.3)">登 录</button>
+  </div>
+</div>
+<div id="app">
+  <header class="topbar">
+    <span class="brand">资产聚合管理终端</span>
+    <span class="env" id="env-tag">M1 · 账户 + 记账</span>
+  </header>
+
+  <main id="view">
+    <!-- ── 总览（M4 数据聚合展示中心） ── -->
+    <section class="page" id="page-overview">
+      <div class="hero-card">
+        <div class="hero-label">净资产</div>
+        <div class="hero-num up" id="ov-net">—</div>
+        <div class="hero-sub" id="ov-sub">总资产 — · 总负债 —</div>
+        <div class="hero-sub" id="ov-debt" style="opacity:.72"></div>
+      </div>
+      <!-- 全局搜索 -->
+      <div class="search-bar" style="margin:12px 0">
+        <input id="g-search" type="search" placeholder="全局搜索：备注 / 分类 / 金额 / 对方…"
+          oninput="GlobalSearch.onInput(this.value)" style="width:100%;padding:10px 14px;border-radius:12px;border:1px solid var(--line);background:#fff;font-size:14px">
+        <div id="g-results" style="display:none;margin-top:8px"></div>
+      </div>
+      <div class="grid2">
+        <div class="stat-card"><div class="stat-label">本月收入</div><div class="stat-num up" id="ov-income">—</div></div>
+        <div class="stat-card"><div class="stat-label">本月支出</div><div class="stat-num down" id="ov-expense">—</div></div>
+      </div>
+
+      <div class="domain-grid">
+        <div class="domain-card" onclick="openDomain('assets')">
+          <div class="dc-ic dc-a"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg></div>
+          <div class="dc-nm">资产</div>
+          <div class="dc-vl" id="ov-dom-assets">—</div>
+        </div>
+        <div class="domain-card" onclick="openDomain('debt')">
+          <div class="dc-ic dc-d"><svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg></div>
+          <div class="dc-nm">债务</div>
+          <div class="dc-vl" id="ov-dom-debt">—</div>
+        </div>
+        <div class="domain-card" onclick="openDomain('biz')">
+          <div class="dc-ic dc-b"><svg viewBox="0 0 24 24"><path d="M3 9l1.5-5h15L21 9"/><path d="M3 9v10a1 1 0 001 1h16a1 1 0 001-1V9"/><path d="M9 20v-6h6v6"/></svg></div>
+          <div class="dc-nm">经营</div>
+          <div class="dc-vl" id="ov-dom-biz">—</div>
+        </div>
+        <div class="domain-card" onclick="openDomain('insurance')">
+          <div class="dc-ic dc-i"><svg viewBox="0 0 24 24"><path d="M12 2L4 7v6c0 5 3.5 9 8 10 4.5-1 8-5 8-10V7l-8-5z"/></svg></div>
+          <div class="dc-nm">保障</div>
+          <div class="dc-vl" id="ov-dom-ins">—</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">财务健康度 <span class="hint" style="cursor:pointer" onclick="HealthUI.open()">详情 ›</span></div>
+        <div id="ov-health">—</div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">资产分布与配置 <span class="hint">现金 / 投资 / 固定</span></div>
+        <div id="ov-dist-chart" style="height:190px"></div>
+        <div id="ov-dist-legend" class="dist-legend"></div>
+        <div id="ov-alloc" style="margin-top:10px"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">账户分布 <span class="hint">负债绿</span></div>
+        <div id="ov-pool-chart" style="height:160px"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">本月收支构成 <span class="hint">收入来源 / 支出分类</span></div>
+        <div class="flow2">
+          <div><div class="sub-t">收入构成</div><div id="ov-inc-chart" style="height:150px"></div></div>
+          <div><div class="sub-t">支出分类</div><div id="ov-exp-chart" style="height:150px"></div></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">近 6 月现金流 <span class="hint">收入红 / 支出绿</span></div>
+        <div id="ov-flow-chart" style="height:180px"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">净资产趋势 <span class="hint" style="cursor:pointer" onclick="NetTrendUI.open()">查看全部 ›</span></div>
+        <div id="ov-trend-chart" style="height:200px"></div>
+        <div id="ov-trend-note" class="hint" style="margin-top:6px">每日自动记录净值，持续使用生成完整趋势</div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">账本汇总与对比 <span class="hint">各账本本月收支 · 点击查看报表</span></div>
+        <div id="ov-books" class="mini-list"></div>
+        <div id="ov-book-compare" style="margin-top:10px"></div>
+      </div>
+
+      <div class="card" id="ov-remind-card" style="display:none">
+        <div class="card-title">到期提醒 <span class="hint" style="cursor:pointer" onclick="RemindUI.open()">管理 ›</span></div>
+        <div id="ov-remind" class="mini-list"></div>
+      </div>
+
+      <div class="card" id="ov-calendar-card">
+        <div class="card-title">财务日历 <span class="hint">还款 / 应付 / 周期记账 / 工资 / 保费</span></div>
+        <div id="ov-calendar"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">储蓄目标 <span class="hint" style="cursor:pointer" onclick="GoalUI.open()">管理 ›</span></div>
+        <div id="ov-goals" class="mini-list"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">本月总结 <span class="hint" id="ov-summary-month">本月</span></div>
+        <div id="ov-summary" style="font-size:12.5px;line-height:1.9"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">现金流预测 <span class="hint">未来 6 个月</span>
+          <button class="btn ghost" style="float:right" onclick="ForecastUI.open()">预测</button>
+        </div>
+        <div style="font-size:12px;color:var(--dim);line-height:1.8" id="ov-forecast">基于周期记账与近 3 月均值，点击「预测」查看未来 6 个月收支</div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">报表 <span class="hint">收支结构 · 分类排行 · 结余</span>
+          <button class="btn ghost" style="float:right" onclick="ReportUI.open()">查看报表</button>
+        </div>
+        <div style="font-size:12px;color:var(--dim);line-height:1.8" id="ov-report-preview">点击「查看报表」生成月报/年报</div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">快捷功能</div>
+        <div class="quick-grid">
+          <button class="quick-btn" onclick="switchTab('ledger'); setTimeout(()=>document.getElementById('bdg-total').scrollIntoView({block:'center'}),300)">月度预算</button>
+          <button class="quick-btn" onclick="switchTab('ledger'); setTimeout(()=>document.getElementById('rec-list2').scrollIntoView({block:'center'}),300)">周期记账</button>
+          <button class="quick-btn" onclick="ReportUI.open()">月报/年报</button>
+          <button class="quick-btn" onclick="NetTrendUI.open()">净资产趋势</button>
+          <button class="quick-btn" onclick="HealthUI.open()">财务健康度</button>
+          <button class="quick-btn" onclick="HealthUI.emergency()">应急基金</button>
+          <button class="quick-btn" onclick="PortfolioUI.open()">持仓总览</button>
+          <button class="quick-btn" onclick="PayCalUI.open()">还款日历</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── 账户 ── -->
+    <section class="page" id="page-pools">
+      <div class="page-head"><h3>账户</h3></div>
+      <div id="pool-list" class="pool-list"></div>
+      <div class="card">
+        <div class="card-title">账户管理</div>
+        <div class="op-row">
+          <button class="btn ghost" onclick="TransferUI.open()">资金转账</button>
+        </div>
+        <div class="card-title" style="margin-top:14px">最近操作</div>
+        <div id="pool-ops" class="mini-list"></div>
+      </div>
+    </section>
+
+    <!-- ── 记账 ── -->
+    <section class="page" id="page-ledger">
+      <div class="page-head"><h3>记账</h3></div>
+      <div class="book-switch" id="book-switch"></div>
+
+      <div class="card">
+        <div class="seg" id="rec-dir">
+          <button class="seg-btn active" data-dir="expense" onclick="Ledger.setDir('expense')">支出</button>
+          <button class="seg-btn" data-dir="income" onclick="Ledger.setDir('income')">收入</button>
+        </div>
+        <div class="amt-box">
+          <input id="rec-amount" type="number" inputmode="decimal" placeholder="0.00" min="0">
+        </div>
+        <div class="cat-row" id="rec-cat2"></div>
+        <div class="cat-row" id="rec-cat3"></div>
+        <div class="cat-row" id="rec-cat4"></div>
+        <div class="field">
+          <label>入账账户</label>
+          <div class="chips" id="rec-pool"></div>
+        </div>
+        <div class="field">
+          <input id="rec-remark" type="text" placeholder="备注（可选）">
+        </div>
+        <div class="field">
+          <label>标签（可选）</label>
+          <div class="chips" id="rec-tags"></div>
+        </div>
+        <div class="field" style="flex-direction:row;align-items:center;gap:10px">
+          <input id="rec-attach" type="file" accept="image/*" style="display:none">
+          <button class="btn ghost xs" onclick="RecForm.pickAttach()">＋ 添加凭证图</button>
+          <span id="rec-attach-name" class="dim-s"></span>
+        </div>
+        <button class="btn block" onclick="Ledger.save()">保存这笔</button>
+        <div id="rec-msg" class="msg"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">本月流水 <span class="hint" id="rec-month-label">本月</span>
+          <button class="btn ghost" style="float:right" onclick="LedgerQueryUI.open()">查询/筛选 ›</button>
+        </div>
+        <div id="rec-list" class="mini-list"><div class="empty">暂无流水</div></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">本月预算 <span class="hint" id="bdg-month"></span>
+          <button class="btn" style="float:right" onclick="BudgetUI.open()">设置</button>
+        </div>
+        <div id="bdg-total" class="bdg-row">—</div>
+        <div id="bdg-daily" class="bdg-daily"></div>
+        <div style="display:flex;align-items:center;gap:8px"><div class="bdg-progress" id="bdg-progress" style="flex:1"><div id="bdg-bar" style="width:0%"></div></div><span id="bdg-pct" style="font-size:12px;font-weight:600;min-width:40px;text-align:right;color:var(--dim)"></span></div>
+        <div class="cat-chips" id="bdg-cats"></div>
+        <div class="hint" id="bdg-warn" style="margin-top:6px"></div>
+        <div id="bdg-year-row" style="margin-top:10px;padding-top:10px;border-top:1px solid var(--line);display:none">
+          <div style="font-size:12px;color:var(--dim);margin-bottom:4px" id="bdg-year-label">年度预算</div>
+          <div id="bdg-year-total" style="font-size:13px;font-weight:600;margin-bottom:4px"></div>
+          <div style="display:flex;align-items:center;gap:8px"><div class="bdg-progress" style="flex:1"><div id="bdg-year-bar" style="width:0%;background:#2d6a4f"></div></div><span id="bdg-year-pct" style="font-size:11px;font-weight:600;min-width:40px;text-align:right;color:var(--dim)"></span></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">周期记账 <span class="hint">每月自动待记</span>
+          <button class="btn ghost" style="float:right" onclick="RecurUI.openForm()">＋ 新建模板</button>
+        </div>
+        <div id="rec-list2" class="mini-list"><div class="empty">暂无周期模板</div></div>
+      </div>
+    </section>
+
+    <!-- ── 工资（M2） ── -->
+    <section class="page" id="page-salary">
+      <div class="page-head"><h3>工资</h3></div>
+
+      <div class="card">
+        <div class="card-title">年度四标签统计 <span class="hint" id="sal-year-tag">2026</span></div>
+        <div class="tag-stats" id="sal-stats"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">工资税务 <span class="hint">个税累计预扣</span>
+          <button class="btn ghost" style="float:right" onclick="SalaryTaxUI.openBonus()">年终奖</button>
+        </div>
+        <div id="sal-tax-card"><div class="empty">选月份后显示当月个税</div></div>
+        <div class="quick-grid" style="margin-top:8px">
+          <button class="btn ghost" onclick="SalaryTaxUI.openYearSummary()">年度汇总</button>
+          <button class="btn ghost" onclick="SalaryTaxUI.openForecast()">调薪预览</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">录入月度工资</div>
+        <div class="field"><label>月份</label>
+          <input id="sal-month" type="month" value="2026-09">
+        </div>
+        <div class="cfg-preview" id="sal-cfg"></div>
+        <div id="sal-bd"></div>
+        <div class="field" style="margin-top:10px"><label>实发工资（手动输入）</label>
+          <input id="sal-net" type="number" step="0.01" placeholder="如 4140">
+        </div>
+        <div id="sal-judge" class="judge-preview">输入实发后自动判定四标签</div>
+        <div class="field"><label>备注（扣款项目，如 大病保险 / 其他扣款）</label>
+          <input id="sal-remark" type="text" placeholder="可选">
+        </div>
+        <div class="field ill-row"><label>大病商业险（手动标记：当月金额异常扣款时勾选）</label>
+          <button class="btn ghost xs" id="sal-ill" onclick="SalaryUI.toggleIll()">标记大病商业险</button>
+        </div>
+        <button class="btn block" onclick="SalaryUI.save()">保存并记账</button>
+        <div id="sal-msg" class="msg"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">历史记录 <span class="hint">历史标签不重算</span></div>
+        <div id="sal-list" class="mini-list"></div>
+      </div>
+    </section>
+
+    <!-- ── 经营（M3） ── -->
+    <section class="page" id="page-biz">
+      <div class="page-head">
+        <button class="btn ghost" onclick="closeDomain()">‹ 返回</button>
+        <h3>经营</h3>
+        <button class="btn" onclick="BizUI.manageMenu()">＋ 管理</button>
+      </div>
+
+      <!-- 资金往来已统一在「总览-债务-往来账款」管理 -->
+
+      <!-- 项目卡片 -->
+      <div class="biz-projects" id="biz-projects"></div>
+
+      <!-- 选中项目的操作区 -->
+      <div id="biz-main" style="display:none">
+        <div class="card">
+          <div class="card-title">记一笔 <button class="btn ghost" style="float:right" onclick="BizUI.openCatManager()">分类管理</button></div>
+          <div class="field"><label>分类（一二三级联动）</label>
+            <select id="bz-l1" onchange="BizUI.catL2()"></select>
+            <select id="bz-l2" onchange="BizUI.catL3()"></select>
+            <select id="bz-l3"></select>
+          </div>
+          <div class="field"><label>金额（收入 + / 支出 −）</label>
+            <input id="bz-amount" type="number" step="0.01" placeholder="0.00">
+          </div>
+          <div class="field"><label>日期</label>
+            <input id="bz-date" type="date">
+          </div>
+          <div class="field"><label>备注</label>
+            <input id="bz-remark" type="text" placeholder="可选">
+          </div>
+          <button class="btn block" onclick="BizUI.saveRecord()">保存流水</button>
+          <div id="bz-msg" class="msg"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">盈余转存 <span class="hint" id="bz-can">可转存 ¥0</span></div>
+          <div class="field"><label>目标账户</label>
+            <select id="bz-target"></select>
+          </div>
+          <div class="field"><label>金额</label>
+            <input id="bz-transfer-amount" type="number" step="0.01" placeholder="0.00">
+          </div>
+          <button class="btn block" onclick="BizUI.transfer()">确认转存</button>
+        </div>
+
+        <div class="card">
+          <div class="card-title">月度盈余 <span class="hint" id="bz-month-tag"></span></div>
+          <div id="bz-surplus" class="mini-list"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">流水明细</div>
+          <div id="bz-records" class="mini-list"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── 资产（M4：投资 + 固定） ── -->
+    <section class="page" id="page-assets">
+      <div class="page-head">
+        <button class="btn ghost" onclick="closeDomain()">‹ 返回</button>
+        <h3>资产</h3>
+        <button class="btn" onclick="AssetsUI.openNewInvest()">+ 投资</button>
+        <button class="btn" onclick="AssetsUI.openNewFixed()">+ 固定</button>
+      </div>
+      <div class="card" id="as-portfolio-card">
+        <div class="card-title">投资组合</div>
+        <div id="as-portfolio"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">投资资产 <span class="hint">黄金克重 4 位 / 价格 2 位</span></div>
+        <div id="as-invest" class="mini-list"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">固定资产 <span class="hint">直线法折旧 · 显示原值/净值</span></div>
+        <div id="as-fixed" class="mini-list"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">储蓄目标 <span class="hint" style="cursor:pointer" onclick="GoalUI.open()">管理 ›</span></div>
+        <div id="as-goals" class="mini-list"></div>
+      </div>
+    </section>
+
+    <!-- ── 我的 ── -->
+    <!-- ── 债务（宫格域 · 二级全屏页） ── -->
+    <section class="page" id="page-debt">
+      <div class="page-head">
+        <button class="btn ghost" onclick="closeDomain()">‹ 返回</button>
+        <h3>债务</h3>
+        <button class="btn" onclick="RepayUI.open()">还款计划</button>
+        <button class="btn" onclick="CreditUI.open()">信用卡账单</button>
+      </div>
+      <div class="card">
+        <div class="card-title">负债概览 <span class="hint">总负债 / 本月应还 / 逾期</span></div>
+        <div id="db-overview"><div class="empty">加载中…</div></div>
+      </div>
+      <div class="card">
+        <div class="card-title">信用卡账单 · 还款计划 <span class="hint" onclick="CreditUI.open()" style="cursor:pointer">管理 ›</span></div>
+        <div id="db-credit"><div class="empty">加载中…</div></div>
+      </div>
+      <div class="card">
+        <div class="card-title">贷款 / 分期 <span class="hint" onclick="RepayUI.open()" style="cursor:pointer">管理 ›</span></div>
+        <div id="db-repay"><div class="empty">加载中…</div></div>
+      </div>
+      <div class="card">
+        <div class="card-title">负债账户 <span class="hint">账单日 / 还款日 / 年利率</span></div>
+        <div id="db-pools"><div class="empty">加载中…</div></div>
+      </div>
+      <div class="card" onclick="ArapUI.openAll()" style="cursor:pointer">
+        <div class="card-title">往来账款 <span class="hint" style="cursor:pointer">应收 / 应付 / 账期 · 管理 ›</span></div>
+        <div id="db-arap"><div class="empty">加载中…</div></div>
+      </div>
+    </section>
+
+    <!-- ── 保障（宫格域 · 二级全屏页） ── -->
+    <section class="page" id="page-insurance">
+      <div class="page-head">
+        <button class="btn ghost" onclick="closeDomain()">‹ 返回</button>
+        <h3>保障</h3>
+        <button class="btn" onclick="InsUI.openNew()">+ 保单</button>
+      </div>
+      <div class="card">
+        <div class="card-title">保单台账 <span class="hint">保险公司 / 险种 / 保额 / 年保费</span></div>
+        <div id="in-policies"><div class="empty">暂无保单，点击右上角添加</div></div>
+      </div>
+      <div class="card">
+        <div class="card-title">保额汇总 <span class="hint">分险种累计保额 · 覆盖缺口</span></div>
+        <div id="in-summary"><div class="empty">添加保单后显示</div></div>
+      </div>
+      <div class="card">
+        <div class="card-title">续费提醒 <span class="hint">到期日期 · 联动到期提醒</span></div>
+        <div id="in-renew"><div class="empty">添加保单后显示</div></div>
+      </div>
+    </section>
+
+    <section class="page" id="page-me">
+      <div class="page-head"><h3>我的</h3></div>
+      <div class="card">
+        <div class="grid4">
+          <div class="grid4-item" onclick="PoolUI.openNew()"><div class="grid4-ic">＋</div><div>新建账户</div></div>
+          <div class="grid4-item" onclick="PoolUI.manageMenu()"><div class="grid4-ic">⚙</div><div>账户管理</div></div>
+          <div class="grid4-item" onclick="LedgerUI.openMenu()"><div class="grid4-ic">✎</div><div>记账管理</div></div>
+          <div class="grid4-item" onclick="SalaryUI.openSettings()"><div class="grid4-ic">¥</div><div>工资设置</div></div>
+        </div>
+      </div>
+      <div class="card">
+        <div style="font-size:12px;color:var(--dim);margin-bottom:8px">账号与数据</div>
+        <div class="me-row" onclick="MineUI.openSync()">
+          <span>云同步与账号</span><span class="hint" id="sync-status">未登录 ›</span>
+        </div>
+        <div class="me-row" onclick="MineUI.openBackup()">
+          <span>数据备份与恢复</span><span class="hint">›</span>
+        </div>
+        <div class="me-row" onclick="MineUI.openExport()">
+          <span>报表导出</span><span class="hint">CSV / Excel / 长图 ›</span>
+        </div>
+        <div class="me-row" onclick="MineUI.openImport()">
+          <span>CSV 导入记账</span><span class="hint">›</span>
+        </div>
+      </div>
+      <div class="card" style="margin-top:12px">
+        <div style="font-size:12px;color:var(--dim);margin-bottom:8px">偏好与安全</div>
+        <div class="me-row" onclick="ThemeUI.open()">
+          <span>外观与字号</span><span class="hint" id="me-theme-state">— ›</span>
+        </div>
+        <div class="me-row" onclick="BookUI.open()">
+          <span>账本管理</span><span class="hint">›</span>
+        </div>
+        <div class="me-row" onclick="RemindUI.open()">
+          <span>到期提醒</span><span class="hint">›</span>
+        </div>
+        <div class="me-row" onclick="MineUI.openLock()">
+          <span>应用锁</span><span class="hint" id="me-lock-status">检查中… ›</span>
+        </div>
+      </div>
+      <div class="card" style="margin-top:12px">
+        <div style="font-size:12px;color:var(--dim);margin-bottom:8px">系统</div>
+        <div class="me-row" onclick="MineUI.health()">
+          <span>系统状态</span><span class="hint" id="me-health">检查中… ›</span>
+        </div>
+      </div>
+      <div style="text-align:center;font-size:11px;color:var(--dim);padding:16px 0 8px">v2.26.4 · 网页版</div>
+    </section>
+  </main>
+
+  <nav class="tabbar">
+    <button class="tab" data-tab="overview">
+      <svg viewBox="0 0 24 24"><path d="M3 10.5L12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>
+      <span>总览</span>
+    </button>
+    <button class="tab" data-tab="ledger">
+      <svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+      <span>记账</span>
+    </button>
+    <button class="tab" data-tab="pools">
+      <svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+      <span>账户</span>
+    </button>
+    <button class="tab" data-tab="salary">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M9 10h4.5a2 2 0 010 4H9"/></svg>
+      <span>工资</span>
+    </button>
+    <button class="tab" data-tab="me">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.5-6 8-6s8 2 8 6"/></svg>
+      <span>我的</span>
+    </button>
+  </nav>
+</div>
+
+<!-- ── 弹层容器 ── -->
+<div id="modal-root"></div>
+<div id="cf-root"></div>
+<div id="toast" class="toast"></div>
+<div id="lock-mask" style="display:none;position:fixed;inset:0;z-index:999;background:#0d1f17;display:none;flex-direction:column;align-items:center;justify-content:center;gap:14px">
+  <div style="color:#fff;font-weight:800;font-size:17px">资产聚合管理终端</div>
+  <div style="color:rgba(255,255,255,.6);font-size:12px" id="lock-mask-status">已开启应用锁，请输入密码</div>
+  <input id="lock-input" type="password" inputmode="numeric" placeholder="输入密码" style="width:220px;padding:12px;border-radius:10px;border:none;text-align:center;font-size:18px;letter-spacing:6px">
+  <button class="btn" style="width:220px;background:#c23a3a;color:#fff" onclick="LockUI.tryUnlock()">解锁</button>
+</div>
+
+<!-- ── 资金往来全屏视图 ── -->
+<div id="arap-view" class="fullscreen-view" style="display:none">
+  <div class="fv-head">
+    <button class="btn ghost" onclick="ArapUI.close()">‹ 返回</button>
+    <h3>资金往来</h3>
+    <button class="btn" onclick="ArapUI.openNew()">+ 新增</button>
+  </div>
+  <div id="arap-body"></div>
+</div>
+
+<!-- ── M7.2 全屏视图：信用卡账单 / 还款计划 / 储蓄目标 / 现金流预测 / 投资分析 ── -->
+<div id="credit-view" class="fullscreen-view" style="display:none">
+  <div class="fv-head">
+    <button class="btn ghost" onclick="CreditUI.close()">‹ 返回</button>
+    <h3>信用卡账单</h3>
+    <button class="btn" onclick="CreditUI.openNew()">+ 新账单</button>
+  </div>
+  <div class="report-tool" id="credit-tool"></div>
+  <div id="credit-body"></div>
+</div>
+
+<div id="repay-view" class="fullscreen-view" style="display:none">
+  <div class="fv-head">
+    <button class="btn ghost" onclick="RepayUI.close()">‹ 返回</button>
+    <h3>还款计划</h3>
+    <button class="btn" onclick="RepayUI.openNew()">+ 新建</button>
+  </div>
+  <div id="repay-body"></div>
+</div>
+
+<div id="goal-view" class="fullscreen-view" style="display:none">
+  <div class="fv-head">
+    <button class="btn ghost" onclick="GoalUI.close()">‹ 返回</button>
+    <h3>储蓄目标</h3>
+    <button class="btn" onclick="GoalUI.openNew()">+ 新建</button>
+  </div>
+  <div id="goal-body"></div>
+</div>
+
+<div id="forecast-view" class="fullscreen-view" style="display:none">
+  <div class="fv-head">
+    <button class="btn ghost" onclick="ForecastUI.close()">‹ 返回</button>
+    <h3>现金流预测</h3>
+  </div>
+  <div id="forecast-body"></div>
+</div>
+
+<div id="xirr-view" class="fullscreen-view" style="display:none">
+  <div class="fv-head">
+    <button class="btn ghost" onclick="XirrUI.close()">‹ 返回</button>
+    <h3>投资收益分析</h3>
+  </div>
+  <div id="xirr-body"></div>
+</div>
+
+<!-- ── 净资产趋势全屏视图（M7.1） ── -->
+<div id="pool-detail-view" class="fullscreen-view" style="display:none">
+  <div class="fv-head">
+    <button class="btn ghost" onclick="PoolUI.detailClose()">‹ 返回</button>
+    <h3 id="pd-title">账户明细</h3>
+    <button class="btn ghost" id="pd-edit" onclick="">编辑 ›</button>
+  </div>
+  <div id="pd-body" style="padding:12px"></div>
+</div>
+
+<div id="portfolio-view" class="fullscreen-view" style="display:none">
+  <div class="fv-head">
+    <button class="btn ghost" onclick="PortfolioUI.close()">‹ 返回</button>
+    <h3>投资持仓总览</h3>
+    <button class="btn ghost" onclick="switchTab('assets')">管理 ›</button>
+  </div>
+  <div id="pf-body" style="padding:12px"></div>
+</div>
+
+<div id="paycal-view" class="fullscreen-view" style="display:none">
+  <div class="fv-head">
+    <button class="btn ghost" onclick="PayCalUI.close()">‹ 返回</button>
+    <h3>还款日历</h3>
+  </div>
+  <div style="padding:12px">
+    <input id="pc-month" type="month" class="sel" onchange="PayCalUI.load()">
+    <div id="pc-body" style="margin-top:10px"></div>
+  </div>
+</div>
+
+<div id="trend-view" class="fullscreen-view" style="display:none">
+  <div class="fv-head">
+    <button class="btn ghost" onclick="NetTrendUI.close()">‹ 返回</button>
+    <h3>净资产趋势</h3>
+    <div class="seg" style="margin:0">
+      <button class="seg-btn" data-days="30" onclick="NetTrendUI.days(30)">30日</button>
+      <button class="seg-btn active" data-days="90" onclick="NetTrendUI.days(90)">90日</button>
+      <button class="seg-btn" data-days="365" onclick="NetTrendUI.days(365)">全年</button>
+      <button class="seg-btn" data-days="0" onclick="NetTrendUI.days(0)">全部</button>
+    </div>
+  </div>
+  <div id="trend-body"></div>
+</div>
+
+<!-- ── 报表全屏视图（M7.1） ── -->
+<div id="book-report-view" class="fullscreen-view" style="display:none">
+  <div class="fv-head">
+    <button class="btn ghost" onclick="BookReportUI.close()">‹ 返回</button>
+    <h3 id="br-title">账本报表</h3>
+    <button class="btn ghost" onclick="BookReportUI.monthPrev()">‹ 月</button>
+    <button class="btn ghost" id="br-month">—</button>
+    <button class="btn ghost" onclick="BookReportUI.monthNext()">月 ›</button>
+  </div>
+  <div id="br-body" style="padding:12px"></div>
+</div>
+
+<div id="report-view" class="fullscreen-view" style="display:none">
+  <div class="fv-head">
+    <button class="btn ghost" onclick="ReportUI.close()">‹ 返回</button>
+    <h3>报表</h3>
+    <div class="seg" style="margin:0">
+      <button class="seg-btn" data-rt="month" onclick="ReportUI.setType('month')">月报</button>
+      <button class="seg-btn" data-rt="quarter" onclick="ReportUI.setType('quarter')">季报</button>
+      <button class="seg-btn" data-rt="year" onclick="ReportUI.setType('year')">年报</button>
+    </div>
+  </div>
+  <div class="report-tool">
+    <input id="rep-date" type="month" onchange="ReportUI.load()">
+  </div>
+  <div id="report-body"></div>
+</div>
+
+<script src="vendor/echarts.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="db-offline.js"></script>
+<script src="api-offline.js"></script>
+<script src="app.js?v=20260922p"></script>
+<script>
+  // PWA：注册 Service Worker（仅 HTTPS / localhost 生效，离线缓存）
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js').catch(e => console.warn('SW 注册失败(非致命):', e));
+    });
+  }
+</script>
+</body>
+</html>
