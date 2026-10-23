@@ -1,0 +1,920 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>资产聚合管理终端 · 产品需求文档</title>
+<style>
+  :root{ --ink:#0f1a14; --dim:#7a8a80; --line:#e8ede9; --bg:#f5f7f5; --card:#fff; --key:#2d7a5f; --up:#e04545; }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--ink);line-height:1.75;font-size:15px}
+  .wrap{max-width:900px;margin:0 auto;padding:40px 28px 80px}
+  .head{background:linear-gradient(135deg,#1b2f27 0%,#2d7a5f 100%);color:#fff;border-radius:20px;padding:36px 40px;margin-bottom:32px}
+  .head h1{font-size:28px;font-weight:800;margin-bottom:8px;letter-spacing:.5px}
+  .head .sub{opacity:.85;font-size:14px}
+  .head .tags{margin-top:14px;display:flex;gap:8px;flex-wrap:wrap}
+  .head .tag{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);padding:3px 12px;border-radius:20px;font-size:12px}
+  .card{background:var(--card);border-radius:16px;padding:28px 32px;margin-bottom:20px;box-shadow:0 2px 12px rgba(15,26,20,.06)}
+  h1{font-size:22px;margin:8px 0 16px}
+  h2{font-size:19px;color:var(--key);margin:30px 0 14px;padding-bottom:8px;border-bottom:2px solid var(--line)}
+  h2:first-of-type{margin-top:0}
+  h3{font-size:16px;margin:22px 0 10px;color:var(--ink)}
+  p{margin:8px 0}
+  ul,ol{margin:8px 0 8px 22px}
+  li{margin:4px 0}
+  table{border-collapse:collapse;width:100%;margin:12px 0;font-size:14px}
+  th,td{border:1px solid var(--line);padding:9px 12px;text-align:left;vertical-align:top}
+  th{background:#eef4f0;color:var(--key);font-weight:700;white-space:nowrap}
+  code{background:#eef4f0;color:#1b5e3a;padding:1px 6px;border-radius:5px;font-size:13px;font-family:ui-monospace,Consolas,monospace}
+  pre{background:#14211b;color:#d8e6de;padding:16px 20px;border-radius:12px;overflow-x:auto;margin:12px 0;font-size:13px}
+  pre code{background:none;color:inherit;padding:0}
+  blockquote{border-left:4px solid var(--key);background:#eef4f0;padding:10px 16px;margin:12px 0;border-radius:0 10px 10px 0;color:#2b4a3c}
+  a{color:var(--key)}
+  .foot{text-align:center;color:var(--dim);font-size:12px;margin-top:40px}
+  @media(max-width:720px){ .wrap{padding:16px 12px 60px} .head{padding:24px 20px} .card{padding:18px 16px} th,td{padding:6px 8px;font-size:13px} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <h1>资产聚合管理终端</h1>
+    <div class="sub">产品需求文档 · PRD v1.0 · 应用基线 v2.26.10 · 2026-10-23</div>
+    <div class="tags"><span class="tag">个人财务</span><span class="tag">工资自动化</span><span class="tag">多账本隔离</span><span class="tag">云同步</span><span class="tag">多端</span></div>
+  </div>
+  <h1>资产聚合管理终端 · 产品需求文档（PRD）</h1>
+<table>
+<thead>
+<tr>
+<th>项目</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>产品名称</td>
+<td>资产聚合管理终端（Asset Terminal）</td>
+</tr>
+<tr>
+<td>文档版本</td>
+<td>v1.0</td>
+</tr>
+<tr>
+<td>应用版本基线</td>
+<td>v2.26.10</td>
+</tr>
+<tr>
+<td>文档日期</td>
+<td>2026-10-23</td>
+</tr>
+<tr>
+<td>产品定位</td>
+<td>个人全维度资产聚合管理终端（非单纯记账App）</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>一、产品概述</h2>
+<h3>1.1 背景</h3>
+<p>个人财务管理分散在多个工具中：工资/社保算不清、多张银行卡余额分散、应收应付靠记忆、保单与债务无台账、年度收支无法自动汇总。本产品将<strong>收入、支出、资产、负债、经营、保障</strong>聚合到单一终端，用一个账户体系统一管理。</p>
+<h3>1.2 目标用户</h3>
+<ul>
+<li>有固定工资收入、需核算五险一金与个税的个人</li>
+<li>持有多张银行卡/账户、需要统一管理余额的个人</li>
+<li>有房屋租赁等副业经营、需要项目级收支核算的经营者</li>
+<li>有应收应付账款、保单、债务需要台账管理的个人</li>
+</ul>
+<h3>1.3 核心价值</h3>
+<ol>
+<li><strong>工资自动化</strong>：五险一金自动计算、四标签自动判定、个税累计预扣参考</li>
+<li><strong>资产全景</strong>：净资产、资产分布、现金流趋势、财务健康度一屏掌握</li>
+<li><strong>多账本隔离</strong>：生活/经营/工资账本流水互不干扰，总览全局聚合</li>
+<li><strong>数据自有</strong>：本地IndexedDB全离线 + GitHub云同步，数据不依赖第三方服务</li>
+<li><strong>多端一致</strong>：Android壳 + 电脑浏览器访问同一远程网页，数据云同步</li>
+</ol>
+<hr />
+<h2>二、信息架构</h2>
+<h3>2.1 一级导航（5 Tab）</h3>
+<table>
+<thead>
+<tr>
+<th>Tab</th>
+<th>页面ID</th>
+<th>核心职责</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>总览</td>
+<td>page-overview</td>
+<td>资产仪表盘：净资产、收支、图表、日历、宫格入口</td>
+</tr>
+<tr>
+<td>记账</td>
+<td>page-ledger</td>
+<td>记账表单、当月流水、预算、周期记账</td>
+</tr>
+<tr>
+<td>账户</td>
+<td>page-pools</td>
+<td>资金池列表、账户管理、资金转账、对账冲正</td>
+</tr>
+<tr>
+<td>工资</td>
+<td>page-salary</td>
+<td>月度工资录入、五险一金、四标签、个税、年度汇总</td>
+</tr>
+<tr>
+<td>我的</td>
+<td>page-me</td>
+<td>设置宫格、账号与数据、偏好与安全、系统</td>
+</tr>
+</tbody>
+</table>
+<h3>2.2 四宫格功能域（总览页入口）</h3>
+<table>
+<thead>
+<tr>
+<th>功能域</th>
+<th>页面ID</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>资产</td>
+<td>page-assets</td>
+<td>投资持仓、固定资产、储蓄目标</td>
+</tr>
+<tr>
+<td>债务</td>
+<td>page-debt</td>
+<td>应收应付、账期看板、还款日历</td>
+</tr>
+<tr>
+<td>经营</td>
+<td>page-biz</td>
+<td>经营项目、一二三级收支分类、盈余转存</td>
+</tr>
+<tr>
+<td>保障</td>
+<td>page-insurance</td>
+<td>保单台账</td>
+</tr>
+</tbody>
+</table>
+<h3>2.3 二级全屏页（ViewStack 管理）</h3>
+<p>报表、账本报表、资金转账、流水查询、预算设置、周期记账、分类管理、资金往来详情、财务健康度、投资持仓、还款日历、年度汇总、调薪预览、年终奖、应用锁、云同步、备份恢复、报表导出、CSV导入、主题设置、账本管理、到期提醒、储蓄目标、快捷记账模板、自定义标签 等。</p>
+<hr />
+<h2>三、功能需求详述</h2>
+<h3>3.1 总览 Tab</h3>
+<table>
+<thead>
+<tr>
+<th>功能</th>
+<th>需求说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>净资产 Hero</td>
+<td>总资产 − 总负债，大数字展示（红色系=盈利/上涨方向）</td>
+</tr>
+<tr>
+<td>本月收支</td>
+<td>本月收入、本月支出两个统计卡</td>
+</tr>
+<tr>
+<td>资产分布图</td>
+<td>各资产分类占比饼图</td>
+</tr>
+<tr>
+<td>账户分布图</td>
+<td>各账户余额占比饼图</td>
+</tr>
+<tr>
+<td>本月收支构成</td>
+<td>收入/支出分类构成图</td>
+</tr>
+<tr>
+<td>近6月现金流</td>
+<td>收入/支出柱状趋势</td>
+</tr>
+<tr>
+<td>净资产趋势</td>
+<td>净资产折线变化</td>
+</tr>
+<tr>
+<td>账本汇总</td>
+<td>各账本收入/支出/结余汇总</td>
+</tr>
+<tr>
+<td>到期提醒</td>
+<td>还款、应付、保费等到期事项</td>
+</tr>
+<tr>
+<td>财务日历</td>
+<td>还款/应付/周期记账/工资/保费，支持「待办/金额」双模式切换</td>
+</tr>
+<tr>
+<td>四宫格</td>
+<td>资产/债务/经营/保障 入口</td>
+</tr>
+<tr>
+<td>快捷功能宫格</td>
+<td>高频操作入口（报表、健康度、日历等）</td>
+</tr>
+<tr>
+<td>财务健康度</td>
+<td>多维评分与建议</td>
+</tr>
+</tbody>
+</table>
+<p><strong>规则</strong>：总览只做数据分析展示，不放置快速记账入口。</p>
+<h3>3.2 记账 Tab</h3>
+<table>
+<thead>
+<tr>
+<th>功能</th>
+<th>需求说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>记账表单</td>
+<td>支出/收入切换；金额；四级分类联动（一级→二级→三级→四级）；入账账户；备注；标签；凭证图（附件）</td>
+</tr>
+<tr>
+<td>本月流水</td>
+<td>当前账本当月流水列表（分收入/支出）</td>
+</tr>
+<tr>
+<td>流水查询</td>
+<td>二级页：按月浏览、按分类/账本/方向筛选、搜索</td>
+</tr>
+<tr>
+<td>月预算</td>
+<td>总预算 + 分类预算 + 进度条 + 百分比 + 超支提醒</td>
+</tr>
+<tr>
+<td>年预算</td>
+<td>年度总预算 + 进度条（独立开关）</td>
+</tr>
+<tr>
+<td>周期记账</td>
+<td>每月自动待记模板（新建/编辑/删除）</td>
+</tr>
+<tr>
+<td>记账管理</td>
+<td>汉堡菜单：分类管理、账本管理、快捷模板、自定义标签</td>
+</tr>
+</tbody>
+</table>
+<p><strong>规则</strong>：
+- 流水记入「当前账本」（账本切换器在记账页顶部）
+- 预算按账本隔离（月预算+年预算）
+- 周期模板到期待记，不自动入账（人工确认）</p>
+<h3>3.3 账户 Tab</h3>
+<table>
+<thead>
+<tr>
+<th>功能</th>
+<th>需求说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>资金池列表</td>
+<td>按账户分类分组展示（现金/储蓄/虚拟/信用/投资/债权/负债）</td>
+</tr>
+<tr>
+<td>账户分类管理</td>
+<td>分类新建/改名/删除（预设可删，删后账户归入「其他」）；支持「充值」类（会员卡/公交卡/饭卡/押金）</td>
+</tr>
+<tr>
+<td>账户 CRUD</td>
+<td>新建（含分类、银行、尾号、余额）、编辑、删除</td>
+</tr>
+<tr>
+<td>资金转账</td>
+<td>池间互转，同时更新两个池余额并记录流水</td>
+</tr>
+<tr>
+<td>对账冲正</td>
+<td>余额与实际不一致时，生成「对账冲正XX银行 余额调整」流水</td>
+</tr>
+<tr>
+<td>最近操作</td>
+<td>转账/对账历史</td>
+</tr>
+</tbody>
+</table>
+<h3>3.4 工资 Tab</h3>
+<table>
+<thead>
+<tr>
+<th>功能</th>
+<th>需求说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>工资设置</td>
+<td>社保基数、公积金比例（默认8%）、基本工资、调薪</td>
+</tr>
+<tr>
+<td>月度录入</td>
+<td>月份、应发自动折算、实发手动输入、备注扣款、大病保险手动标记</td>
+</tr>
+<tr>
+<td>五险一金明细</td>
+<td>养老/医疗/失业/工伤/生育/公积金：基数、企业缴纳、个人缴纳、比例；企业综合成本</td>
+</tr>
+<tr>
+<td>四标签判定</td>
+<td>良好/优秀/高温/大病保险，独立标记、单月可多标签</td>
+</tr>
+<tr>
+<td>年度四标签统计</td>
+<td>各标签年度计数</td>
+</tr>
+<tr>
+<td>工资税务</td>
+<td>个税累计预扣参考、年终奖独立计算</td>
+</tr>
+<tr>
+<td>年度汇总</td>
+<td>全年工资/五险一金/个税汇总</td>
+</tr>
+<tr>
+<td>调薪预览</td>
+<td>调整基数后模拟各月应发变化</td>
+</tr>
+<tr>
+<td>历史记录</td>
+<td>按月列表，历史标签不重算</td>
+</tr>
+</tbody>
+</table>
+<p><strong>核心算法</strong>：
+- 公积金双边 = 个人(基数×8%四舍五入) + 企业(基数×8%四舍五入)
+- 应发 = 基本工资按基数比例自动折算
+- 企业综合成本 = 应发 + 企业五险 + 企业公积金
+- 优秀(+180)/高温(+300)记奖励补贴，不计入应发
+- 大病保险不自动判定，用户当月金额异常（如年度一次性扣款）时手动标记</p>
+<h3>3.5 我的 Tab</h3>
+<table>
+<thead>
+<tr>
+<th>功能</th>
+<th>需求说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>快捷宫格</td>
+<td>新建账户、账户管理、记账管理、工资设置</td>
+</tr>
+<tr>
+<td>云同步与账号</td>
+<td>GitHub Token配置、立即同步、自动备份开关</td>
+</tr>
+<tr>
+<td>数据备份与恢复</td>
+<td>全量备份JSON导出/导入、自动备份</td>
+</tr>
+<tr>
+<td>报表导出</td>
+<td>CSV、Excel(xlsx)、长图</td>
+</tr>
+<tr>
+<td>CSV导入记账</td>
+<td>按账本导入、模板示例</td>
+</tr>
+<tr>
+<td>外观与字号</td>
+<td>5套主题（清新绿/晨曦橙/商务蓝/暗夜绿/深邃紫）+ 字号调节</td>
+</tr>
+<tr>
+<td>账本管理</td>
+<td>账本新建/切换/重命名/删除</td>
+</tr>
+<tr>
+<td>到期提醒</td>
+<td>还款/应付/保单/周期记账提醒设置</td>
+</tr>
+<tr>
+<td>应用锁</td>
+<td>进入App密码锁</td>
+</tr>
+<tr>
+<td>系统状态</td>
+<td>存储模式、账户/流水统计、云存储连接状态</td>
+</tr>
+</tbody>
+</table>
+<h3>3.6 资产域</h3>
+<table>
+<thead>
+<tr>
+<th>功能</th>
+<th>需求说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>投资持仓</td>
+<td>名称、成本、现值、盈亏、收益率</td>
+</tr>
+<tr>
+<td>固定资产</td>
+<td>名称、价值、折旧年限（0=不计提）、登记</td>
+</tr>
+<tr>
+<td>储蓄目标</td>
+<td>目标名称、目标金额、已存金额、进度条+百分比</td>
+</tr>
+</tbody>
+</table>
+<h3>3.7 债务域</h3>
+<table>
+<thead>
+<tr>
+<th>功能</th>
+<th>需求说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>应收应付</td>
+<td>方向（应收/应付）、对方、金额、到期日、状态、关联账户</td>
+</tr>
+<tr>
+<td>账期看板</td>
+<td>按账期分组展示应收应付</td>
+</tr>
+<tr>
+<td>还款日历</td>
+<td>信用卡/贷款还款日聚合</td>
+</tr>
+</tbody>
+</table>
+<p><strong>规则</strong>：借出款回收只记资金流入资金池，不计入全年收入（资金形态转换）。</p>
+<h3>3.8 经营域</h3>
+<table>
+<thead>
+<tr>
+<th>功能</th>
+<th>需求说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>经营项目</td>
+<td>项目CRUD（绑定账户）</td>
+</tr>
+<tr>
+<td>收支分类</td>
+<td>收入/成本/支出三级分类联动</td>
+</tr>
+<tr>
+<td>记一笔</td>
+<td>项目内记收支，可选入账账户</td>
+</tr>
+<tr>
+<td>盈余转存</td>
+<td>项目盈余一键转存到指定账户</td>
+</tr>
+<tr>
+<td>资金往来</td>
+<td>应收/应付统一入口（已归入总览-债务管理，避免重复入口）</td>
+</tr>
+</tbody>
+</table>
+<h3>3.9 保障域</h3>
+<table>
+<thead>
+<tr>
+<th>功能</th>
+<th>需求说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>保单台账</td>
+<td>保单名称、类型、保额、保费、缴费周期、到期提醒</td>
+</tr>
+</tbody>
+</table>
+<h3>3.10 报表</h3>
+<table>
+<thead>
+<tr>
+<th>功能</th>
+<th>需求说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>周期</td>
+<td>月报/季报/年报</td>
+</tr>
+<tr>
+<td>内容</td>
+<td>收支汇总、收支构成、TOP支出、分类排行</td>
+</tr>
+<tr>
+<td>导出</td>
+<td>CSV / Excel(xlsx) / 长图（当前账本与全量）</td>
+</tr>
+</tbody>
+</table>
+<h3>3.11 登录与安全</h3>
+<table>
+<thead>
+<tr>
+<th>功能</th>
+<th>需求说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>登录页</td>
+<td>深色渐变背景 + 深蓝圆角卡片 + 金色图标/按钮（参考「黄金智能助手」风格）</td>
+</tr>
+<tr>
+<td>账号</td>
+<td>admin / admin123（本地验证）</td>
+</tr>
+<tr>
+<td>登录态</td>
+<td>localStorage 记录（at_token / at_user），登录后默认进入总览</td>
+</tr>
+<tr>
+<td>应用锁</td>
+<td>独立于登录的进入锁（可开关）</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>四、核心业务规则</h2>
+<table>
+<thead>
+<tr>
+<th>规则</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>红涨绿跌</td>
+<td>收入/上涨/盈利=红(#e04545)，支出/下跌/负债=绿(#1ba06a)</td>
+</tr>
+<tr>
+<td>账本隔离</td>
+<td>流水归属当前账本；总览聚合所有账本/账户</td>
+</tr>
+<tr>
+<td>多标签</td>
+<td>四标签独立标记，单月可多标签，不合并</td>
+</tr>
+<tr>
+<td>历史不重算</td>
+<td>调薪后修改基准，历史月份标签不变</td>
+</tr>
+<tr>
+<td>池间互转</td>
+<td>一笔记账同时更新两个池余额</td>
+</tr>
+<tr>
+<td>对账冲正</td>
+<td>生成「对账冲正+银行+余额调整」类型流水</td>
+</tr>
+<tr>
+<td>分类删除</td>
+<td>预设分类可删，删除后相关记录归入「其他」</td>
+</tr>
+<tr>
+<td>借出款回收</td>
+<td>只作资金形态转换，不计收入</td>
+</tr>
+<tr>
+<td>导出</td>
+<td>导出值 = 当前账本流水（可全量）</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>五、数据模型</h2>
+<h3>5.1 核心表（IndexedDB / server DB）</h3>
+<table>
+<thead>
+<tr>
+<th>表</th>
+<th>关键字段</th>
+<th>用途</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>records</td>
+<td>direction/amount/cat_id/pool_id/book_id/created_at/remark</td>
+<td>流水</td>
+</tr>
+<tr>
+<td>pools</td>
+<td>name/bank/tail/balance/type/cat/book_id</td>
+<td>资金池/账户</td>
+</tr>
+<tr>
+<td>books</td>
+<td>name/type/is_default</td>
+<td>账本</td>
+</tr>
+<tr>
+<td>cats</td>
+<td>name/path/direction/parent_id</td>
+<td>收支分类（四级）</td>
+</tr>
+<tr>
+<td>salaries</td>
+<td>month/base/gross/net/tag_<em>/bonus/subsidy/deduction_</em></td>
+<td>工资记录</td>
+</tr>
+<tr>
+<td>biz_projects</td>
+<td>name/pool_id</td>
+<td>经营项目</td>
+</tr>
+<tr>
+<td>biz_records</td>
+<td>project_id/type/amount/date</td>
+<td>经营收支</td>
+</tr>
+<tr>
+<td>araps</td>
+<td>direction/party/amount/due_date/status/pool_id</td>
+<td>应收应付</td>
+</tr>
+<tr>
+<td>assets</td>
+<td>name/type/value/cost/useful_life_years</td>
+<td>投资/固定资产</td>
+</tr>
+<tr>
+<td>debts</td>
+<td>—</td>
+<td>信用卡/贷款</td>
+</tr>
+<tr>
+<td>insurances</td>
+<td>—</td>
+<td>保单</td>
+</tr>
+<tr>
+<td>recur</td>
+<td>—</td>
+<td>周期记账模板</td>
+</tr>
+<tr>
+<td>budgets</td>
+<td>book_id/month/amount</td>
+<td>预算</td>
+</tr>
+</tbody>
+</table>
+<h3>5.2 localStorage Key</h3>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>用途</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>at_token / at_user</td>
+<td>登录态</td>
+</tr>
+<tr>
+<td>at_book</td>
+<td>当前账本ID</td>
+</tr>
+<tr>
+<td>at_theme / at_font</td>
+<td>主题/字号</td>
+</tr>
+<tr>
+<td>at_pool_cats</td>
+<td>资金池分类配置</td>
+</tr>
+<tr>
+<td>at_year_budget_{YYYY}</td>
+<td>年度总预算</td>
+</tr>
+<tr>
+<td>at_github_token</td>
+<td>GitHub云同步Token</td>
+</tr>
+<tr>
+<td>at_last_backup</td>
+<td>上次备份时间</td>
+</tr>
+<tr>
+<td>at_last_form</td>
+<td>记账表单草稿</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>六、技术方案</h2>
+<h3>6.1 架构</h3>
+<pre><code>┌─ 客户端 ─────────────────────────────┐
+│ Android壳(Capacitor WebView)          │  ← 打开即加载远程网页
+│    ↓ 固定URL                           │
+│ GitHub Pages 远程网页                 │
+│  ├─ index.html（5Tab+宫格+二级页）     │
+│  ├─ app.js（业务逻辑，~4700行）        │
+│  ├─ style.css（5套主题+桌面适配）      │
+│  ├─ db-offline.js（IndexedDB封装）     │
+│  ├─ api-offline.js（离线API层）        │
+│  └─ sw.js（Service Worker 网络优先）   │
+└──────────────────────────────────────┘
+        ↕ GitHub Contents API（云同步）
+┌─ 云存储 ──────────────────────────────┐
+│ git202526/asset-terminal/data/cloud-sync.json │
+└──────────────────────────────────────┘
+</code></pre>
+<h3>6.2 关键机制</h3>
+<table>
+<thead>
+<tr>
+<th>机制</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>远程壳</td>
+<td>Capacitor壳URL固定（?v=20260922h），永不改；更新只需push网页</td>
+</tr>
+<tr>
+<td>缓存策略</td>
+<td>Service Worker网络优先，CSS/JS带?v=参数强制更新</td>
+</tr>
+<tr>
+<td>版本提示</td>
+<td>启动对比 version.txt 与 APP_VERSION，发现新版显示绿色提示条（点击手动刷新，不自动跳转）</td>
+</tr>
+<tr>
+<td>云同步</td>
+<td>5秒防抖push、启动静默pull合并；登录后显示云存储状态</td>
+</tr>
+<tr>
+<td>桌面端</td>
+<td>≥960px：左侧固定导航 + 总览双栏仪表盘 + 各Tab双栏适配</td>
+</tr>
+<tr>
+<td>移动端</td>
+<td>&lt;960px：底部5Tab + 单栏布局</td>
+</tr>
+</tbody>
+</table>
+<h3>6.3 技术栈</h3>
+<ul>
+<li>前端：原生 HTML + CSS + JS（无框架）</li>
+<li>图表：ECharts 5.5（本地vendor，不依赖CDN）</li>
+<li>壳：Capacitor 6 → Android APK</li>
+<li>存储：IndexedDB + localStorage</li>
+<li>云同步：GitHub Contents API（REST）</li>
+<li>托管：GitHub Pages（git202526/asset-terminal-web 公开仓库）</li>
+</ul>
+<hr />
+<h2>七、非功能需求</h2>
+<table>
+<thead>
+<tr>
+<th>类别</th>
+<th>要求</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>性能</td>
+<td>本地全离线可用；千条级流水秒开；列表分页/按月浏览防长列表卡顿</td>
+</tr>
+<tr>
+<td>兼容</td>
+<td>Android WebView、Chrome、桌面浏览器；桌面≥960px与移动双布局</td>
+</tr>
+<tr>
+<td>数据安全</td>
+<td>数据存本机IndexedDB；云同步经用户Token；登录+应用锁双重保护</td>
+</tr>
+<tr>
+<td>可维护</td>
+<td>app.js语法检查（node --check）、模板字符串防误删、HTML结构校验</td>
+</tr>
+<tr>
+<td>视觉一致性</td>
+<td>5套主题CSS变量驱动；图标统一SVG线性风格；红涨绿跌全局一致</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>八、版本历史（主要里程碑）</h2>
+<table>
+<thead>
+<tr>
+<th>版本</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>2.16</td>
+<td>总览卡片重排：核心数字→资产分布→收支分析→账本→提醒→工具</td>
+</tr>
+<tr>
+<td>2.17</td>
+<td>记账页只显当月流水；流水查询移二级页按月浏览；管理按钮收进汉堡菜单</td>
+</tr>
+<tr>
+<td>2.18</td>
+<td>年度总预算 + 年预算进度条</td>
+</tr>
+<tr>
+<td>2.19</td>
+<td>账户分类分组（现金/储蓄/虚拟/信用/投资/债权/负债）+ 充值类</td>
+</tr>
+<tr>
+<td>2.20</td>
+<td>非总览Tab隐藏顶部品牌栏；我的页面改分类列表式入口</td>
+</tr>
+<tr>
+<td>2.21</td>
+<td>管理入口收进「我的」宫格卡片</td>
+</tr>
+<tr>
+<td>2.22</td>
+<td>账户分类支持新建/改名/删除</td>
+</tr>
+<tr>
+<td>2.23</td>
+<td>报表加季报；日历加金额模式切换</td>
+</tr>
+<tr>
+<td>2.24</td>
+<td>UI视觉重构（更大圆角/柔和阴影/现代金融风）</td>
+</tr>
+<tr>
+<td>2.25</td>
+<td>APK壳改加载GitHub Pages远程网页（免重装更新）</td>
+</tr>
+<tr>
+<td>2.26.7</td>
+<td>登录页重构（深色+金色，参考黄金智能助手）</td>
+</tr>
+<tr>
+<td>2.26.8</td>
+<td>修复启动TDZ致命bug（登录页不显示的根因）；桌面端总览仪表盘化</td>
+</tr>
+<tr>
+<td>2.26.9</td>
+<td>温和版本提示（手动刷新，杜绝死循环）；版本格式统一</td>
+</tr>
+<tr>
+<td>2.26.10</td>
+<td>桌面端记账/工资/账户/我的双栏适配；修复页面叠加显示bug</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>九、迭代规划</h2>
+<h3>P0 必修（开发中/待排期）</h3>
+<ul>
+<li>[x] 登录页显示与默认进总览（v2.26.7-2.26.8 完成）</li>
+<li>[x] 桌面端全Tab适配（v2.26.10 完成）</li>
+<li>[ ] 账户编辑支持修改分类字段</li>
+<li>[ ] 季报日期选择器兼容（YYYY-Qn格式）</li>
+<li>[ ] 二级页左滑返回动画过渡效果</li>
+<li>[ ] 手机系统返回键逐级返回完整验证</li>
+</ul>
+<h3>P1 增强</h3>
+<ul>
+<li>[ ] 搜索结果分组（按日期/账本）</li>
+<li>[ ] 固定资产折旧曲线可视化</li>
+<li>[ ] 预算模板库</li>
+<li>[ ] 多端实时同步优化</li>
+</ul>
+<h3>P2 规划</h3>
+<ul>
+<li>[ ] 投资资产自动估值（黄金/证券行情接入）</li>
+<li>[ ] 周期记账自动入账（带确认）</li>
+<li>[ ] 多主题联动深色模式跟随系统</li>
+</ul>
+<hr />
+<p><em>文档生成：2026-10-23 · 基线 v2.26.10</em></p>
+  <div class="foot">资产聚合管理终端 · 产品需求文档 · 2026-10-23</div>
+</div>
+</body>
+</html>
