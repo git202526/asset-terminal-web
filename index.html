@@ -421,6 +421,13 @@
         <div class="card-title">投资组合</div>
         <div id="as-portfolio"></div>
       </div>
+      <div class="card" style="padding:10px 14px">
+        <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
+          <input type="checkbox" id="as-auto-price" onchange="AssetsUI.toggleAutoPrice(this.checked)" style="width:18px;height:18px">
+          <span style="flex:1;font-size:13px">自动估值（黄金行情）</span>
+          <span id="as-auto-note" class="hint" style="font-size:11px"></span>
+        </label>
+      </div>
       <div class="card">
         <div class="card-title">投资资产 <span class="hint">黄金克重 4 位 / 价格 2 位</span></div>
         <div id="as-invest" class="mini-list"></div>
@@ -702,9 +709,10 @@
 <script src="vendor/echarts.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="app-core.js"></script>
 <script src="db-offline.js"></script>
 <script src="api-offline.js"></script>
-<script src="app.js?v=20260922s"></script>
+<script src="app.js?v=300"></script>
 <script>
   // PWA：注册 Service Worker（仅 HTTPS / localhost 生效，离线缓存）
   if ('serviceWorker' in navigator) {

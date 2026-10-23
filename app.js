@@ -4,7 +4,7 @@
 // 全局规则：红涨绿跌（盈利/上涨/收入=红，亏损/下跌/支出/负债=绿）
 
 // 温和版本检测：发现新版本只提示，不自动跳转（避免死循环）
-const APP_VERSION = '2.26.10';
+const APP_VERSION = '3.0.0';
 (function checkUpdate() {
   try {
     const done = sessionStorage.getItem('at_check_ver');
@@ -439,10 +439,11 @@ const ReportUI = {
     if (t === 'year') {
       el.type = 'text'; el.value = (el.value || this.date()).slice(0, 4); el.placeholder = '年份 YYYY';
     } else if (t === 'quarter') {
-      el.type = 'month';
-      const now = new Date();
-      const q = Math.floor(now.getMonth() / 3) + 1;
-      el.value = now.getFullYear() + '-Q' + q;
+      // P0-2：季报选择器兼容 YYYY-Qn（type=text，非法值回落当前季）
+      el.type = 'text';
+      const pq = parseQuarter(el.value) || currentQuarter();
+      el.value = fmtQuarter(pq);
+      el.placeholder = '如 2026-Q3';
     } else {
       el.type = 'month'; el.value = this.date();
     }
@@ -456,15 +457,13 @@ const ReportUI = {
       try { body.innerHTML = this.renderMonth(await api('/report/month?month=' + month)); }
       catch (e) { body.innerHTML = '<div class="empty">加载失败</div>'; }
     } else if (this.type === 'quarter') {
-      const m = el.value || this.date();
-      const y = m.slice(0, 4);
-      const mo = parseInt(m.slice(5, 7) || '1');
-      const q = Math.floor((mo - 1) / 3) + 1;
-      const from = y + '-' + String((q - 1) * 3 + 1).padStart(2, '0') + '-01';
-      const to = y + '-' + String(q * 3).padStart(2, '0') + '-31';
+      // P0-2：解析 YYYY-Qn；非法值回落当前季度并回写输入框
+      const pq = parseQuarter(el.value) || currentQuarter();
+      el.value = fmtQuarter(pq);
+      const r = quarterMonths(pq.year, pq.quarter);
       try {
-        const rows = await api('/records?from=' + from + '&to=' + to + '&limit=100000');
-        body.innerHTML = this.renderQuarter(y + ' 年 Q' + q, rows);
+        const rows = await api('/records?from=' + r.from + '&to=' + r.to + '&limit=100000');
+        body.innerHTML = this.renderQuarter(pq.year + ' 年 Q' + pq.quarter, rows);
       } catch (e) { body.innerHTML = '<div class="empty">加载失败</div>'; }
     } else {
       const year = (el.value || this.date()).slice(0, 4);
@@ -638,8 +637,15 @@ const PoolUI = {
     const map = this.getCatMap();
     delete map[key];
     this.saveCatMap(map);
-    toast('已删除');
-    this.openCatManager(); this.load();
+    // P0-1：删除分类后，引用该分类的账户持久化归入「其他」（此前仅删映射导致账户从列表消失）
+    const ids = poolsToRehome(this.list, key);
+    if (ids.length) {
+      Promise.all(ids.map(id => put('/pools/' + id, { cat: 'other' }).catch(() => {})))
+        .then(() => { toast(`已删除，${ids.length} 个账户归入"其他"`); this.openCatManager(); this.load(); });
+    } else {
+      toast('已删除');
+      this.openCatManager(); this.load();
+    }
   },
   async load() {
     const box = document.getElementById('pool-list');
@@ -653,7 +659,7 @@ const PoolUI = {
     const catOrder = Object.keys(catMap);
     const groups = {};
     for (const p of this.list) {
-      const c = p.cat || (p.kind === 'liability' ? 'credit' : 'saving');
+      const c = poolResolvedCat(p, catMap);
       if (!groups[c]) groups[c] = [];
       groups[c].push(p);
     }
@@ -827,6 +833,7 @@ const PoolUI = {
     const p = PoolUI.list.find(x => x.id === id);
     if (!p) return;
     const isL = p.kind === 'liability';
+    const curCat = p.cat || (isL ? 'credit' : 'saving');
     BookUI.list().then(books => {
       const bookSel = `<div class="field"><label>所属账本</label>
         <select id="ep-book">${books.map(b =>
@@ -836,6 +843,11 @@ const PoolUI = {
         ${bookSel}
         <div class="field"><label>名称</label><input id="ep-name" type="text" value="${p.name}"></div>
       <div class="field"><label>尾号</label><input id="ep-tail" type="text" value="${p.tail}"></div>
+      <div class="field"><label>账户分类</label>
+        <select id="ep-cat" class="sel">
+          ${Object.entries(this.getCatMap()).map(([k, v]) => `<option value="${k}" ${k === curCat ? 'selected' : ''}>${v.name}</option>`).join('')}
+        </select>
+      </div>
       ${isL ? `
       <div id="ep-debt">
         <div style="display:flex;gap:8px">
@@ -854,7 +866,7 @@ const PoolUI = {
     const name = document.getElementById('ep-name').value.trim();
     const tail = document.getElementById('ep-tail').value.trim();
     if (!name || !tail) return toast('名称和尾号必填', true);
-    const body = { name, tail, book_id: Number(document.getElementById('ep-book')?.value || 1) };
+    const body = { name, tail, cat: document.getElementById('ep-cat')?.value, book_id: Number(document.getElementById('ep-book')?.value || 1) };
     const p = PoolUI.list.find(x => x.id === id);
     if (p && p.kind === 'liability') {
       body.bill_day = Number(document.getElementById('ep-bill').value) || 0;
@@ -1185,7 +1197,7 @@ const Ledger = {
   }
 };
 
-// ── 全局搜索（跨账本搜流水）────────────────────────────
+// ── 全局搜索（跨账本搜流水 + 账户/资产分组，P1-1）──────────
 const GlobalSearch = {
   _t: null,
   onInput(v) {
@@ -1196,15 +1208,43 @@ const GlobalSearch = {
     const box = document.getElementById('g-results');
     if (!q || q.length < 1) { box.style.display = 'none'; box.innerHTML = ''; return; }
     try {
-      const rows = await api('/records?q=' + encodeURIComponent(q) + '&limit=50');
-      box.style.display = '';
-      box.innerHTML = rows.length ? rows.map(r => `
+      const [recs, pools, fx, inv] = await Promise.all([
+        api('/records?q=' + encodeURIComponent(q) + '&limit=50').catch(() => []),
+        api('/pools').catch(() => []),
+        api('/fixed').catch(() => []),
+        api('/invest').catch(() => [])
+      ]);
+      const poolsHit = pools.filter(p => searchMatch(p.name, q) || searchMatch(p.tail, q)).slice(0, 10);
+      const fxHit = fx.filter(f => searchMatch(f.name, q)).slice(0, 10);
+      const invHit = inv.filter(a => searchMatch(a.name, q)).slice(0, 10);
+      const recTruncated = recs.length >= 50;
+      const groups = [];
+      if (recs.length) groups.push(['记账流水', recs.map(r => `
         <div class="mini-item" style="padding:8px 0;border-bottom:1px solid var(--line)">
           <span style="font-size:13px">${(r.created_at || '').slice(0, 10)}</span>
           <span style="font-size:13px;margin-left:6px">${r.cat_path}</span>
           ${r.remark ? `<span style="color:var(--dim);font-size:12px"> · ${r.remark}</span>` : ''}
           <span style="float:right" class="${r.direction === 'income' ? 'up' : 'down'}">${r.direction === 'income' ? '+' : '-'}¥${fmt(r.amount)}</span>
-        </div>`).join('') : '<div class="empty" style="padding:12px">无匹配结果</div>';
+        </div>`).join('') + (recTruncated ? '<div class="hint" style="padding:6px 0">结果已超限，仅显示前 50 条，请细化关键词</div>' : '')]);
+      if (poolsHit.length) groups.push(['账户', poolsHit.map(p => `
+        <div class="mini-item" style="padding:8px 0;border-bottom:1px solid var(--line)">
+          <span style="font-size:13px">${p.name} · 尾号 ${p.tail}</span>
+          <span style="float:right" class="${p.balance >= 0 ? 'up' : 'down'}">¥${fmt(p.balance)}</span>
+        </div>`).join('')]);
+      if (invHit.length) groups.push(['投资资产', invHit.map(a => `
+        <div class="mini-item" style="padding:8px 0;border-bottom:1px solid var(--line)">
+          <span style="font-size:13px">${AssetsUI.kindName(a.kind)} · ${a.name}</span>
+          <span style="float:right" class="${a.profit >= 0 ? 'up' : 'down'}">市值 ¥${fmt(a.market_value)} ${a.profit >= 0 ? '+' : ''}${fmt(a.profit)}</span>
+        </div>`).join('')]);
+      if (fxHit.length) groups.push(['固定资产', fxHit.map(f => `
+        <div class="mini-item" style="padding:8px 0;border-bottom:1px solid var(--line)">
+          <span style="font-size:13px">${f.name}</span>
+          <span style="float:right" class="${f.profit >= 0 ? 'up' : 'down'}">估值 ¥${fmt(f.est_value)} ${f.profit >= 0 ? '+' : ''}${fmt(f.profit)}</span>
+        </div>`).join('')]);
+      box.style.display = '';
+      box.innerHTML = groups.length
+        ? groups.map(([title, html]) => `<div style="font-size:12px;color:var(--dim);margin:8px 0 4px">${title}</div>${html}`).join('')
+        : '<div class="empty" style="padding:12px">无匹配结果</div>';
     } catch (e) { box.style.display = ''; box.innerHTML = '<div class="empty">搜索失败</div>'; }
   }
 };
@@ -1288,6 +1328,14 @@ const BudgetUI = {
       <div class="field"><label>月份</label><input id="bdg-m" type="month" value="${m}"></div>
       <div class="field"><label>${y} 年度总预算（元）</label><input id="bdg-year" type="number" step="0.01" placeholder="如 60000" value="${yearBudget}"></div>
       <div class="field"><label>月度总预算（元）</label><input id="bdg-t" type="number" step="0.01" placeholder="如 5000" value="${total}"></div>
+      <div class="field" style="flex-direction:row;align-items:center;gap:8px">
+        <label style="margin:0">套用模板</label>
+        <select id="bdg-tpl" class="sel" style="flex:1">
+          ${BUDGET_TEMPLATES.map(t => `<option value="${t.key}">${t.name}（${t.note}）</option>`).join('')}
+        </select>
+        <button class="btn" style="margin:0" onclick="BudgetUI.applyTemplate()">套用</button>
+      </div>
+      <div class="hint" style="margin:-4px 0 6px">套用模板：按分类配比自动填入下方分类预算（需先填月度总预算）</div>
       <div class="field" style="flex-direction:row;align-items:center;gap:10px">
         <label style="margin:0">上月结余自动结转</label>
         <input id="bdg-carry" type="checkbox" style="width:18px;height:18px" ${carry ? 'checked' : ''}>
@@ -1315,6 +1363,19 @@ const BudgetUI = {
       toast('已复制 ' + lastMonth + ' 预算');
       this.settings();
     } catch (e) { toast(e.message, true); }
+  },
+  // P1-3 套用预算模板（配比来自 app-core BUDGET_TEMPLATES，可自行调整）
+  applyTemplate() {
+    const t = parseFloat(document.getElementById('bdg-t').value);
+    if (isNaN(t) || t <= 0) return toast('请先填写月度总预算', true);
+    const tpl = BUDGET_TEMPLATES.find(x => x.key === document.getElementById('bdg-tpl').value);
+    const cats = Ledger.tree.filter(c => c.lvl === 2 && c.direction === 'expense');
+    const rows = applyBudgetTemplate(tpl, t, cats.map(c => ({ id: c.id, name: c.name })));
+    for (const r of rows) {
+      const el = document.getElementById('bdg-cat-' + r.category_id);
+      if (el) el.value = r.amount;
+    }
+    toast('已按「' + tpl.name + '」填入分类预算');
   },
   async save() {
     const m = document.getElementById('bdg-m').value;
@@ -2277,26 +2338,64 @@ const ArapUI = {
 };
 
 // ── 资产（M4：投资 + 固定）─────────────────────────────
+// P2-1 自动估值行情源（可配置，默认新浪黄金；失败回落手动价并提示）
+const PriceFeed = {
+  cache: null, ts: 0,
+  src() { return localStorage.getItem('at_price_src') || 'https://hq.sinajs.cn/list=gds_AUTD'; },
+  async fetchGoldPrice() {
+    if (this.cache && Date.now() - this.ts < 5 * 60e3) return this.cache;
+    try {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 4000);
+      const r = await fetch(this.src(), { headers: { 'Referer': 'https://finance.sina.com.cn' }, signal: ctrl.signal });
+      clearTimeout(timer);
+      const text = await r.text();
+      const m = text.match(/"([^"]*)"/);
+      if (!m) return null;
+      const parts = m[1].split(',');
+      const price = parseFloat(parts[8]); // 新浪格式第9字段=最新价（元/克）
+      if (!isNaN(price) && price > 0) { this.cache = price; this.ts = Date.now(); return price; }
+      return null;
+    } catch (e) { return null; }
+  }
+};
 const AssetsUI = {
-  invest: [], fixed: [],
+  invest: [], fixed: [], autoPrice: localStorage.getItem('at_auto_price') === '1',
+  toggleAutoPrice(on) {
+    this.autoPrice = on;
+    localStorage.setItem('at_auto_price', on ? '1' : '0');
+    this.load();
+  },
   async load() {
-    const [inv, fx] = await Promise.all([api('/invest'), api('/fixed')]);
+    let [inv, fx] = await Promise.all([api('/invest'), api('/fixed')]);
+    const chk = document.getElementById('as-auto-price');
+    if (chk) chk.checked = this.autoPrice;
+    if (this.autoPrice) {
+      // 自动估值：黄金走行情源（失败回落手动价并提示），其余维持手动
+      const gold = await PriceFeed.fetchGoldPrice();
+      this.autoGoldPrice = gold;
+      this.autoPriceNote = gold == null ? '行情获取失败，黄金已用手动价' : '黄金自动估值已生效 ⚡';
+      inv = inv.map(a => a.kind === 'gold' ? Object.assign(a, resolveMarketValue(a, gold)) : a);
+    }
     this.invest = inv; this.fixed = fx;
     this.portfolioCard(inv);
     GoalUI.load().catch(() => {});
     document.getElementById('as-invest').innerHTML = inv.length ? inv.map(a => `
       <div class="mini-item">
-        <span>${this.kindName(a.kind)} · ${a.name} <span class="dim-s">${this.qtyText(a)}</span></span>
+        <span>${this.kindName(a.kind)} · ${a.name} ${a.price_auto ? '⚡' : ''} <span class="dim-s">${this.qtyText(a)}</span></span>
         <span>¥${fmt(a.market_value)} <span class="${a.profit >= 0 ? 'up' : 'down'}">${a.profit >= 0 ? '+' : ''}${fmt(a.profit)}</span>
           <button onclick="XirrUI.open(${a.id})" style="border:none;background:none;color:var(--key);cursor:pointer;font-size:11px">收益</button>
           <button onclick="AssetsUI.editInvest(${a.id})" style="border:none;background:none;color:var(--dim);cursor:pointer;font-size:11px">改</button>
           <button onclick="AssetsUI.delInvest(${a.id})" style="border:none;background:none;color:var(--dim);cursor:pointer;font-size:11px">删</button></span>
       </div>`).join('') : '<div class="empty">暂无投资资产，点右上角 + 投资</div>';
+    const note = document.getElementById('as-auto-note');
+    if (note) note.textContent = this.autoPrice && this.autoPriceNote ? this.autoPriceNote : '';
     document.getElementById('as-fixed').innerHTML = fx.length ? fx.map(f => `
       <div class="mini-item">
         <span>${f.name} <span class="dim-s">${f.buy_date ? '购于 ' + f.buy_date : ''}</span></span>
         <span>¥${fmt(f.est_value)} <span class="${f.profit >= 0 ? 'up' : 'down'}">${f.profit >= 0 ? '+' : ''}${fmt(f.profit)}</span>
           ${f.deprec ? `<span class="dim-s" style="font-size:10px">净 ¥${fmt(f.net_value)} · 月折 ¥${fmt(f.month_depr)}</span>` : ''}
+          ${f.deprec ? `<button onclick="AssetsUI.openDeprecChart(${f.id})" style="border:none;background:none;color:var(--key);cursor:pointer;font-size:11px">曲线</button>` : ''}
           <button onclick="AssetsUI.editFixed(${f.id})" style="border:none;background:none;color:var(--dim);cursor:pointer;font-size:11px">改</button>
           <button onclick="AssetsUI.delFixed(${f.id})" style="border:none;background:none;color:var(--dim);cursor:pointer;font-size:11px">删</button></span>
       </div>`).join('') : '<div class="empty">暂无固定资产，点右上角 + 固定</div>';
@@ -2428,6 +2527,46 @@ const AssetsUI = {
     try { await del('/fixed/' + id); toast('已删除'); await this.refresh(); }
     catch (e) { toast(e.message, true); }
   },
+  // P1-2 折旧曲线：按月投影净值（购置日至折旧期满）
+  openDeprecChart(id) {
+    const f = this.fixed.find(x => x.id === id);
+    if (!f) return;
+    const proj = deprecProjection(f);
+    if (!proj.deprec) return toast('该资产未启用折旧（需购置日期 + 折旧年限）', true);
+    const salvagePct = (f.salvage_rate || 0) * 100;
+    openModal(`
+      <h4>${f.name} · 折旧曲线</h4>
+      <div class="hint" style="margin-bottom:8px">成本 ¥${fmt(proj.points[0].net)} · 残值 ¥${fmt(proj.salvage)}（${salvagePct}%）· 月折 ¥${fmt(proj.month_depr)}</div>
+      <div id="dp-chart" style="height:230px;width:100%"></div>
+      <div id="dp-table" style="max-height:180px;overflow:auto;margin-top:8px"></div>
+      <button class="btn ghost block" style="margin-top:10px" onclick="closeModal()">完成</button>`);
+    this.renderDeprecChart(proj);
+  },
+  renderDeprecChart(proj) {
+    const el = document.getElementById('dp-chart');
+    if (!el) return;
+    const months = proj.points.map(p => p.month);
+    const nets = proj.points.map(p => p.net);
+    if (typeof echarts !== 'undefined') {
+      const chart = echarts.init(el);
+      chart.setOption({
+        tooltip: { trigger: 'axis', valueFormatter: v => '¥' + Number(v).toLocaleString('zh-CN', { maximumFractionDigits: 2 }) },
+        grid: { left: 8, right: 8, top: 24, bottom: 8, containLabel: true },
+        xAxis: { type: 'category', data: months, axisLabel: { interval: Math.max(0, Math.floor(months.length / 8) - 1), fontSize: 10 } },
+        yAxis: { type: 'value', axisLabel: { fontSize: 10, formatter: v => (v / 10000 >= 1 ? (v / 10000).toFixed(1) + 'w' : v) } },
+        series: [{ type: 'line', data: nets, smooth: true, showSymbol: false, lineStyle: { width: 2, color: '#2e7d5b' }, areaStyle: { opacity: 0.08 } }]
+      });
+    } else {
+      el.innerHTML = '<div class="empty">图表库未加载，以下为逐月净值表</div>';
+    }
+    // 逐月净值表（echarts 缺失时仍可完整查看）
+    const step = Math.ceil(proj.points.length / 60);
+    document.getElementById('dp-table').innerHTML = `<table style="width:100%;font-size:11.5px;border-collapse:collapse">
+      <tr style="color:var(--dim)"><td style="padding:4px 6px">月份</td><td>净值</td><td>累计折旧</td></tr>
+      ${proj.points.filter((_, i) => i % step === 0 || i === proj.points.length - 1).map(p => `
+        <tr><td style="padding:4px 6px">${p.month}</td><td>¥${fmt(p.net)}</td><td>¥${fmt(proj.points[0].net - p.net)}</td></tr>`).join('')}
+    </table>`;
+  },
   async refresh() {
     await Promise.all([this.load(), Overview.load()]);
   }
@@ -2451,9 +2590,12 @@ const Me = {
   },
   openSync() {
     const cur = localStorage.getItem('at_github_token') || '';
+    const confs = JSON.parse(localStorage.getItem('at_sync_conflicts') || '[]');
+    const lastSync = localStorage.getItem('at_last_sync');
     openModal(`
       <h4>云同步与账号</h4>
       <div style="font-size:12px;color:var(--dim);margin-bottom:10px">登录后可多端同步数据到 GitHub</div>
+      ${lastSync ? `<div class="hint" style="margin-bottom:8px">最近同步：${new Date(lastSync).toLocaleString('zh-CN')}${confs.length ? ` · 待处理冲突 <b style="color:#e8a13a">${confs.length}</b> 条` : ''}</div>` : ''}
       <div class="field"><label>GitHub Token（只需输入一次）</label>
         <input id="gh-token-input" type="password" value="${cur}" placeholder="粘贴 GitHub Personal Access Token">
       </div>
@@ -2461,6 +2603,7 @@ const Me = {
       <div class="op-row" style="flex-wrap:wrap;gap:8px;margin-top:10px">
         <button class="btn" onclick="AuthUI.syncUp();closeModal()">立即同步到 GitHub</button>
         <button class="btn ghost" onclick="AuthUI.syncDown();closeModal()">从 GitHub 下载</button>
+        ${confs.length ? `<button class="btn ghost" style="color:#e8a13a" onclick="AuthUI.openConflicts();closeModal()">处理冲突 (${confs.length})</button>` : ''}
         <button class="btn ghost" onclick="AuthUI.relogin();closeModal()">重新登录</button>
         <button class="btn ghost" onclick="AuthUI.logout();closeModal()">退出登录</button>
       </div>`);
@@ -2890,6 +3033,35 @@ const AuthUI = {
       this.syncUp().catch(() => {});
     }, 5000);
   },
+  // P1-4：GitHub API 请求带重试（网络错误/5xx/429 指数退避；4xx 鉴权类不重试）
+  async _ghFetch(url, opts) {
+    return retryAsync(async () => {
+      const resp = await fetch(url, opts);
+      if (resp.status === 401 || resp.status === 403 || resp.status === 404) return resp;
+      if (resp.status >= 500 || resp.status === 429) throw new Error('HTTP ' + resp.status);
+      return resp;
+    }, { retries: 2, baseDelay: 1200 });
+  },
+  _syncStatus(text) {
+    const ss = document.getElementById('sync-status');
+    if (ss) ss.textContent = text;
+  },
+  _idbWriteTable(store, rows) {
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open('asset-terminal-offline');
+      req.onsuccess = () => {
+        const db = req.result;
+        const tx = db.transaction(store, 'readwrite');
+        const os = tx.objectStore(store);
+        os.clear().onsuccess = () => {
+          for (const row of rows) os.put(row);
+          tx.oncomplete = () => resolve();
+          tx.onerror = () => reject(tx.error);
+        };
+      };
+      req.onerror = () => reject(req.error);
+    });
+  },
   async syncUp() {
     toast('正在上传到 GitHub…');
     try {
@@ -2897,71 +3069,116 @@ const AuthUI = {
       const content = btoa(unescape(encodeURIComponent(JSON.stringify(data, null, 2))));
       const owner = 'git202526', repo = 'asset-terminal', path = 'data/cloud-sync.json';
       const token = localStorage.getItem('at_github_token') || '';
+      if (!token) { toast('请先保存 GitHub Token', true); return; }
       let sha = null;
       try {
-        const gr = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${path}`, { headers: { 'Authorization': 'token ' + token } });
+        const gr = await this._ghFetch(`https://api.github.com/repos/${owner}/${repo}/contents/${path}`, { headers: { 'Authorization': 'token ' + token } });
         if (gr.ok) { const gj = await gr.json(); sha = gj.sha; }
       } catch (e) {}
-      const r = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${path}`, {
+      const r = await this._ghFetch(`https://api.github.com/repos/${owner}/${repo}/contents/${path}`, {
         method: 'PUT',
         headers: { 'Authorization': 'token ' + token, 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: 'sync ' + new Date().toISOString(), content, sha })
       });
-      if (r.ok) toast('已同步到 GitHub');
-      else { const ej = await r.json().catch(()=>({})); toast('上传失败: ' + (ej.message || r.status), true); }
-    } catch (e) { toast('上传失败: ' + e.message, true); }
+      if (r.ok) {
+        localStorage.setItem('at_last_sync', new Date().toISOString());
+        this._syncStatus('最近同步 ' + new Date().toLocaleString('zh-CN'));
+        toast('已同步到 GitHub');
+      } else {
+        const ej = await r.json().catch(() => ({}));
+        toast('上传失败: ' + (ej.message || r.status), true);
+      }
+    } catch (e) { toast('上传失败（已自动重试）: ' + e.message, true); }
   },
   async syncDown(silent) {
     if (!silent) toast('正在从 GitHub 下载并合并…');
     try {
       const owner = 'git202526', repo = 'asset-terminal', path = 'data/cloud-sync.json';
-      const r = await fetch(`https://raw.githubusercontent.com/${owner}/${repo}/main/${path}`);
+      const r = await this._ghFetch(`https://raw.githubusercontent.com/${owner}/${repo}/main/${path}`);
       if (!r.ok) { if (!silent) toast('云端暂无数据', true); return; }
       const cloud = await r.json();
-      // 拉本地全量
       const local = await api('/export/full');
-      // 按表合并：同 id 取 updated_at 新的
-      const TABLES = Object.keys(cloud).filter(k => k !== 'exported_at' && k !== 'app' && k !== 'version');
-      let merged = 0, added = 0;
-      for (const t of TABLES) {
-        const localRows = local[t] || [];
-        const cloudRows = cloud[t] || [];
-        const map = new Map();
-        // 先放本地
-        for (const row of localRows) {
-          if (row.id != null) map.set(row.id, row);
-        }
-        // 合并云端：新的覆盖旧的
-        for (const crow of cloudRows) {
-          if (crow.id == null) continue;
-          const old = map.get(crow.id);
-          if (!old) { map.set(crow.id, crow); added++; }
-          else {
-            const lt = old.updated_at || old.created_at || '';
-            const ct = crow.updated_at || crow.created_at || '';
-            if (ct > lt) { map.set(crow.id, crow); merged++; }
-          }
-        }
-        // 写回 IndexedDB
-        const store = t;
-        const db = await new Promise(resolve => { const req = indexedDB.open('asset-terminal-offline'); req.onsuccess = () => resolve(req.result); });
-        const tx = db.transaction(store, 'readwrite');
-        const os = tx.objectStore(store);
-        await new Promise(resolve => {
-          os.clear().onsuccess = () => {
-            for (const row of map.values()) os.put(row);
-            tx.oncomplete = resolve;
-          };
-        });
+      // P1-4：冲突感知合并（双方都更新过 → 冲突登记，默认保留本地，设置中可逐条处理）
+      const lastSync = localStorage.getItem('at_last_sync') || '';
+      const m = mergeCloudSync(local, cloud, lastSync);
+      for (const t of Object.keys(m.stores)) {
+        await this._idbWriteTable(t, m.stores[t]);
       }
-      if (!silent) {
-        toast(`合并完成：更新 ${merged} 条，新增 ${added} 条`);
-        setTimeout(() => location.reload(), 1500);
-      } else if (merged + added > 0) {
-        toast(`已从云端同步 ${merged + added} 条更新`);
-        setTimeout(() => location.reload(), 1500);
+      if (m.conflicts.length) {
+        const prev = JSON.parse(localStorage.getItem('at_sync_conflicts') || '[]');
+        localStorage.setItem('at_sync_conflicts', JSON.stringify(m.conflicts.concat(prev).slice(0, 200)));
       }
+      localStorage.setItem('at_last_sync', new Date().toISOString());
+      this._syncStatus('最近同步 ' + new Date().toLocaleString('zh-CN'));
+      if (m.conflicts.length) {
+        const msg = `合并完成：更新 ${m.updated} 条，新增 ${m.added} 条，检测到 ${m.conflicts.length} 条冲突（默认保留本地，可在设置中处理）`;
+        if (!silent) toast(msg, true); else toast(msg);
+      } else if (!silent || m.updated + m.added > 0) {
+        toast(`已从云端同步 ${m.updated + m.added} 条更新`);
+      }
+      if (m.updated + m.added > 0) setTimeout(() => location.reload(), 1500);
     } catch (e) { if (!silent) toast('合并失败: ' + e.message, true); }
+  },
+  // P1-4 冲突处理（同步检测到的冲突默认保留本地，这里逐条/批量裁决）
+  openConflicts() {
+    const confs = JSON.parse(localStorage.getItem('at_sync_conflicts') || '[]');
+    if (!confs.length) { toast('暂无待处理冲突'); return; }
+    openModal(`
+      <h4>同步冲突（${confs.length} 条）</h4>
+      <div class="hint" style="margin-bottom:6px">双方都修改过同一条记录：保留本地 = 不动；采用云端 = 用云端内容覆盖本地该条。</div>
+      <div style="max-height:48vh;overflow:auto">
+        ${confs.map((c, i) => `<div class="cat-node" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+          <span style="flex:1;min-width:120px"><b style="font-size:12.5px">${c.table} #${c.id}</b><br><span class="hint" style="font-size:11px">本地 ${c.localAt || '-'} / 云端 ${c.cloudAt || '-'}</span></span>
+          <button class="btn" style="margin:0" onclick="AuthUI.resolveConflict(${i},'cloud')">采用云端</button>
+          <button class="btn ghost" style="margin:0" onclick="AuthUI.resolveConflict(${i},'local')">保留本地</button>
+        </div>`).join('')}
+      </div>
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <button class="btn block" onclick="AuthUI.resolveAll('cloud')">全部采用云端</button>
+        <button class="btn ghost block" onclick="AuthUI.resolveAll('local')">全部保留本地</button>
+      </div>`);
+  },
+  async resolveConflict(i, side) {
+    const confs = JSON.parse(localStorage.getItem('at_sync_conflicts') || '[]');
+    const c = confs[i];
+    if (!c) return;
+    if (side === 'cloud') {
+      try {
+        const db = await new Promise((resolve, reject) => { const req = indexedDB.open('asset-terminal-offline'); req.onsuccess = () => resolve(req.result); req.onerror = () => reject(req.error); });
+        await new Promise((res, rej) => {
+          const tx = db.transaction(c.table, 'readwrite');
+          tx.objectStore(c.table).put(c.cloud);
+          tx.oncomplete = res; tx.onerror = () => rej(tx.error);
+        });
+      } catch (e) { return toast('写入失败: ' + e.message, true); }
+    }
+    confs.splice(i, 1);
+    localStorage.setItem('at_sync_conflicts', JSON.stringify(confs));
+    toast(side === 'cloud' ? '已采用云端版本' : '已保留本地版本');
+    if (confs.length) this.openConflicts(); else { closeModal(); toast('冲突已全部处理'); }
+  },
+  resolveAll(side) {
+    const confs = JSON.parse(localStorage.getItem('at_sync_conflicts') || '[]');
+    if (!confs.length) return;
+    if (side === 'cloud') {
+      (async () => {
+        try {
+          const db = await new Promise((resolve, reject) => { const req = indexedDB.open('asset-terminal-offline'); req.onsuccess = () => resolve(req.result); req.onerror = () => reject(req.error); });
+          for (const c of confs) {
+            await new Promise((res, rej) => {
+              const tx = db.transaction(c.table, 'readwrite');
+              tx.objectStore(c.table).put(c.cloud);
+              tx.oncomplete = res; tx.onerror = () => rej(tx.error);
+            });
+          }
+        } catch (e) { return toast('写入失败: ' + e.message, true); }
+        localStorage.removeItem('at_sync_conflicts');
+        closeModal(); toast('已全部采用云端版本，请手动刷新查看');
+      })();
+    } else {
+      localStorage.removeItem('at_sync_conflicts');
+      closeModal(); toast('已全部保留本地版本');
+    }
   },
   gate() {
     // 已登录过（localStorage有记录）直接放行
@@ -2983,6 +3200,7 @@ const AuthUI = {
 const ThemeUI = {
   key: 'at_theme', fontKey: 'at_font',
   themes: [
+    { id: 'auto', name: '跟随系统', desc: '随系统深浅自动切换' },
     { id: 'light', name: '清新绿', desc: '默认浅色' },
     { id: 'warm', name: '晨曦橙', desc: '暖色调' },
     { id: 'ocean', name: '商务蓝', desc: '沉稳专业' },
@@ -2993,27 +3211,50 @@ const ThemeUI = {
     { id: 'small', name: '小' }, { id: 'normal', name: '标准' },
     { id: 'large', name: '大' }, { id: 'xlarge', name: '特大' }
   ],
+  systemDark() {
+    try { return !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches); }
+    catch (e) { return false; }
+  },
+  apply(choice) {
+    const eff = resolveTheme(choice, this.systemDark());
+    document.documentElement.dataset.theme = eff;
+    document.documentElement.dataset.themeChoice = choice;
+  },
   init() {
     const t = localStorage.getItem(this.key) || 'light';
-    document.documentElement.dataset.theme = t;
+    this.apply(t);
     const f = localStorage.getItem(this.fontKey) || 'normal';
     document.documentElement.dataset.font = f;
     this.updateLabels();
+    // P2-3：跟随系统（auto）时监听系统深浅切换
+    if (typeof window.matchMedia === 'function') {
+      try {
+        const mq = window.matchMedia('(prefers-color-scheme: dark)');
+        const fn = () => { if ((localStorage.getItem(this.key) || 'light') === 'auto') this.apply('auto'); };
+        if (mq.addEventListener) mq.addEventListener('change', fn);
+        else if (mq.addListener) mq.addListener(fn);
+      } catch (e) {}
+    }
   },
   updateLabels() {
-    const t = document.documentElement.dataset.theme;
+    const t = document.documentElement.dataset.themeChoice || document.documentElement.dataset.theme;
+    const eff = document.documentElement.dataset.theme;
     const f = document.documentElement.dataset.font;
     const el = document.getElementById('me-theme-state');
-    if (el) el.textContent = (this.themes.find(x => x.id === t) || {}).name || t;
+    if (el) {
+      const choice = (this.themes.find(x => x.id === t) || {}).name || t;
+      const effName = (this.themes.find(x => x.id === eff) || {}).name || eff;
+      el.textContent = t === 'auto' ? `跟随系统 · ${effName} ›` : (choice + ' ›');
+    }
     const fe = document.getElementById('me-font-state');
     if (fe) fe.textContent = (this.fonts.find(x => x.id === f) || {}).name || f;
   },
   open() {
-    const cur = document.documentElement.dataset.theme;
+    const cur = document.documentElement.dataset.themeChoice || document.documentElement.dataset.theme;
     const curF = document.documentElement.dataset.font;
     openModal(`
       <h4>外观与字号</h4>
-      <div class="field"><label>主题</label></div>
+      <div class="field"><label>主题 <span class="hint">跟随系统 = 自动适配深浅</span></label></div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
         ${this.themes.map(t => `
           <button class="btn ${t.id === cur ? '' : 'ghost'}" onclick="ThemeUI.setTheme('${t.id}')"
@@ -3028,7 +3269,7 @@ const ThemeUI = {
       <button class="btn block" onclick="closeModal()">完成</button>`);
   },
   setTheme(id) {
-    document.documentElement.dataset.theme = id;
+    this.apply(id);
     localStorage.setItem(this.key, id);
     this.open();
     Overview.load();
@@ -3723,44 +3964,42 @@ const XirrUI = {
 // M7.2 主题初始化（文件末尾：确保所有 const 已定义）
 
 // ── 视图返回栈：二级页返回（左滑跟手滑动 + 系统返回键/浏览器后退）──
+const _viewStackBS = createBackStack();
 const ViewStack = {
-  stack: [],
+  get stack() { return _viewStackBS.stack; },
   open(id, closeFn) {
-    if (this.stack.length && this.stack[this.stack.length - 1].id === id) return;
+    if (!_viewStackBS.stack.push(id, { close: closeFn })) return;
     const v = document.getElementById(id);
     if (v) { v.style.transform = ''; v.style.opacity = ''; }
-    this.stack.push({ id, close: closeFn });
     try { history.pushState({ v: id }, '', '#' + id); } catch (e) {}
   },
-  _backing: false,
+  peek() { return _viewStackBS.stack.peek(); },
   close() {
-    if (!this.stack.length) return;
-    const top = this.stack.pop();
-    top.close();
-    this._backing = true;
-    try { history.back(); } catch (e) { this._backing = false; }
+    if (!_viewStackBS.stack.size()) return;
+    const top = _viewStackBS.stack.pop();
+    if (top && top.close) top.close();
+    _viewStackBS.markBacking();
+    try { history.back(); } catch (e) { _viewStackBS.consumeBacking(); }
   },
   _pop(silent) {
-    if (this._backing) { this._backing = false; return true; }
-    const m = document.querySelector('.modal-mask');
-    if (m && getComputedStyle(m).display !== 'none') { closeModal(); return true; }
-    if (!this.stack.length) return false;
-    const top = this.stack.pop();
-    top.close();
-    return true;
+    return handleBackKey(_viewStackBS,
+      () => { const m = document.querySelector('.modal-mask'); return !!(m && getComputedStyle(m).display !== 'none'); },
+      closeModal,
+      top => { if (top && top.close) top.close(); });
   }
 };
 window.addEventListener('popstate', () => ViewStack._pop());
 // 原生返回键入口（MainActivity 调用）：返回 true=已消费返回键，false=无内容可退
 window.__handleBack = function () { return ViewStack._pop(true) ? true : false; };
-// 左缘右滑：跟手位移 + 松手回弹/滑出
+// 左缘右滑：跟手位移 + 松手回弹/滑出（P0-3：动画过渡 + 动画期间防重复触发）
 (function () {
-  let gx = null, gy = null, el = null, moving = false;
+  let gx = null, gy = null, el = null, moving = false, closing = false;
   const VIEW_IDS = new Set(['book-report-view','report-view','pool-detail-view','arap-view','credit-view','repay-view','goal-view','forecast-view','xirr-view','trend-view','portfolio-view','paycal-view']);
   document.addEventListener('touchstart', function (e) {
     const t = e.touches[0];
+    if (closing) return; // 返回动画进行中，忽略新手势
     if (t.clientX <= 28 && ViewStack.stack.length) {
-      const top = ViewStack.stack[ViewStack.stack.length - 1];
+      const top = ViewStack.peek();
       const v = document.getElementById(top.id);
       if (!v || !VIEW_IDS.has(top.id)) return;
       gx = t.clientX; gy = t.clientY; el = v; moving = true;
@@ -3782,14 +4021,16 @@ window.__handleBack = function () { return ViewStack._pop(true) ? true : false; 
     const t = e.changedTouches[0];
     const dx = t.clientX - gx, dy = t.clientY - gy;
     const v = el; gx = null; gy = null; el = null;
-    const ok = dx > 88 && Math.abs(dy) < dx * 0.7;
+    const ok = swipeShouldClose(dx, dy, { minDx: 88, ratio: 0.7 });
     v.style.transition = 'transform .2s ease, opacity .2s ease';
     if (ok) {
+      closing = true; // 动画期间锁：防连续滑动叠加
       v.style.transform = 'translateX(100%)';
       v.style.opacity = '0';
       setTimeout(function () {
         v.style.transform = ''; v.style.opacity = '';
         ViewStack.close();
+        closing = false;
       }, 200);
     } else {
       v.style.transform = 'translateX(0)';

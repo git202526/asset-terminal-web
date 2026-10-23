@@ -282,11 +282,11 @@ const OfflineAPI = {
       return list.sort((a, b) => a.id - b.id);
     }
     if (segs[1] === 'pools' && segs.length === 2 && method === 'POST') {
-      const { name, tail, kind = 'asset', balance = 0, bill_day = 0, due_day = 0, apr = 0, credit_limit = 0, book_id = 1 } = body || {};
+      const { name, tail, kind = 'asset', balance = 0, cat, bill_day = 0, due_day = 0, apr = 0, credit_limit = 0, book_id = 1 } = body || {};
       if (!name || !tail) throw Err('name 和 tail 必填');
       const id = await IDB.idbTx(async a => {
         const now = IDB.nowStr();
-        return await a.add('pools', { name, tail, kind, balance, bill_day: Number(bill_day) || 0, due_day: Number(due_day) || 0, apr: Number(apr) || 0, credit_limit: Number(credit_limit) || 0, book_id: Number(book_id) || 1, created_at: now, updated_at: now });
+        return await a.add('pools', { name, tail, kind, cat: cat || (kind === 'liability' ? 'credit' : 'saving'), balance, bill_day: Number(bill_day) || 0, due_day: Number(due_day) || 0, apr: Number(apr) || 0, credit_limit: Number(credit_limit) || 0, book_id: Number(book_id) || 1, created_at: now, updated_at: now });
       });
       return await IDB.idbGet('pools', id);
     }
@@ -295,7 +295,7 @@ const OfflineAPI = {
       if (!p) throw Err('账户不存在', 404);
       const b = body || {};
       await IDB.idbTx(async a => {
-        await a.put('pools', { ...p, name: b.name ?? p.name, tail: b.tail ?? p.tail, kind: b.kind ?? p.kind, bill_day: b.bill_day !== undefined ? (Number(b.bill_day) || 0) : (p.bill_day || 0), due_day: b.due_day !== undefined ? (Number(b.due_day) || 0) : (p.due_day || 0), apr: b.apr !== undefined ? (Number(b.apr) || 0) : (p.apr || 0), credit_limit: b.credit_limit !== undefined ? (Number(b.credit_limit) || 0) : (p.credit_limit || 0), book_id: b.book_id !== undefined ? (Number(b.book_id) || 1) : (p.book_id || 1), updated_at: IDB.nowStr() });
+        await a.put('pools', { ...p, name: b.name ?? p.name, tail: b.tail ?? p.tail, kind: b.kind ?? p.kind, cat: b.cat ?? p.cat ?? (p.kind === 'liability' ? 'credit' : 'saving'), bill_day: b.bill_day !== undefined ? (Number(b.bill_day) || 0) : (p.bill_day || 0), due_day: b.due_day !== undefined ? (Number(b.due_day) || 0) : (p.due_day || 0), apr: b.apr !== undefined ? (Number(b.apr) || 0) : (p.apr || 0), credit_limit: b.credit_limit !== undefined ? (Number(b.credit_limit) || 0) : (p.credit_limit || 0), book_id: b.book_id !== undefined ? (Number(b.book_id) || 1) : (p.book_id || 1), updated_at: IDB.nowStr() });
       });
       return await IDB.idbGet('pools', P(2));
     }

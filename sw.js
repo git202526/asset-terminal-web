@@ -2,8 +2,8 @@
  * 静态资源：网络优先（每次拉新版，拉不到才用缓存）
  * API：网络优先，离线兜底
  */
-const CACHE = 'asset-terminal-v3';
-const STATIC = ['/', '/index.html', '/style.css', '/app.js', '/db-offline.js', '/api-offline.js',
+const CACHE = 'asset-terminal-v4';
+const STATIC = ['/', '/index.html', '/style.css', '/app.js', '/app-core.js', '/db-offline.js', '/api-offline.js',
   'https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js'];
 
 self.addEventListener('install', e => {
